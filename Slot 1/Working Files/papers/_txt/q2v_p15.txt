@@ -1,0 +1,67 @@
+Table 8: Ablation studies of M-RoPE. Compared to 1D-RoPE, using M-RoPE achieves better performance in
+downstream tasks, particularly in video benchmarks. RWQ means RealworldQA.
+Image Benchmarks
+Video Benchmarks
+MathVista
+MMB
+MMStar
+RWQ
+DocVQA
+ChartQA
+InfoVQA
+TextVQA
+PerceptionTest
+NextQA
+STAR
+1D-RoPE
+39.2
+58.6
+36.7
+54.5
+82.5
+68.0
+50.8
+71.3
+46.6
+43.9
+55.5
+M-RoPE
+43.4
+60.6
+36.7
+53.7
+82.8
+68.4
+50.3
+71.8
+47.4
+46.0
+57.9
+Training Sequence Length
+Figure 5: Evaluate the length extrapolation capability of Qwen2-VL-72B on Video-MME Medium Video.
+With the help of M-RoPE, the model demonstrated robust performance when the inference length exceeded
+the maximum training length of 16384 tokens.
+reasoning capability rather than image resolution.
+3.3.2
+M-RoPE
+In this subsection, we demonstrate the effectiveness of M-RoPE. First, we validate its capability on various
+downstream tasks. We employ Qwen2-1.5B and ViT-L as the backbone and report the results of the pre-
+trained models. As shown in Table 8, compared to 1D-RoPE, using M-RoPE achieves better performance
+in downstream tasks, particularly in video benchmarks. Furthermore, we assess the length extrapolation
+capability of M-RoPE on Video-MME medium-length videos. Figure 5 illustrates the performance of Qwen2-
+VL-72B at different inference lengths. Leveraging M-RoPE, the model demonstrates robust results across
+various inference lengths. Notably, despite limiting the maximum tokens per video to 16K during training,
+the model still exhibits exceptional performance at a maximum inference length of 80K tokens.
+3.3.3
+Model Scaling
+We evaluate the performance of models of varying scales across multiple capability dimensions. Specifically,
+we categorize these dimensions into complex college-level problem-solving, mathematical abilities, document
+and table comprehension, general scenario question-answering, and video comprehension. The overall
+capability of a model is assessed by averaging its scores across different benchmarks associated with each
+dimension.
+In particular, we use the MMMU (Yue et al., 2023) benchmark to represent college-level problem-solving
+ability, while the average scores from MathVista (Lu et al., 2024a) and MathVision (Wang et al., 2024)
+serve as indicators of mathematical ability. For general scenario question-answering, we compute the av-
+erage score across the RealWorldQA (X.AI, 2024a), MMBench-V1.1 (Liu et al., 2023d), MMT-Bench (Ying
+et al., 2024), HallBench (Guan et al., 2023), MMVet (Yu et al., 2024), and MMStar (Chen et al., 2024a)
+15

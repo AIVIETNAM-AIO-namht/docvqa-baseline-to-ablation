@@ -1,0 +1,349 @@
+===== PAGE 9 =====
+Table 2: Performance Comparison of Qwen2-VL Models and State-of-the-art.
+Benchmark
+Previous SoTA
+Claude-3.5 Sonnet
+GPT-4o
+Qwen2-VL-72B
+Qwen2-VL-7B
+Qwen2-VL-2B
+MMMUval (Yue et al., 2023)
+66.1 (X.AI, 2024b)
+68.3
+69.1
+64.5
+54.1
+41.1
+DocVQAtest (Mathew et al., 2021)
+94.1 (Chen et al., 2024c)
+95.2
+92.8
+96.5
+94.5
+90.1
+InfoVQAtest (Mathew et al., 2021)
+82.0 (Chen et al., 2024c)
+-
+-
+84.5
+76.5
+65.5
+AI2D (Kembhavi et al., 2016)
+87.6 (Chen et al., 2024c)
+80.2(94.7)
+84.6(94.2)
+88.1
+83.0
+74.7
+ChartQAtest (Masry et al., 2022)
+88.4 (Chen et al., 2024c)
+90.8
+85.7
+88.3
+83.0
+73.5
+TextVQAval (Singh et al., 2019)
+84.4 (Chen et al., 2024c)
+-
+-
+85.5
+84.3
+79.7
+OCRBench (Liu et al., 2023e)
+852 (Yao et al., 2024)
+788
+736
+877
+866
+809
+MTVQA (Tang et al., 2024)
+23.2 (Team et al., 2023)
+25.7
+27.8
+30.9
+25.6
+18.1
+VCRen easy (Zhang et al., 2024c)
+84.7 (Chen et al., 2024c)
+63.9
+91.6
+91.9
+89.7
+81.5
+VCRzh easy (Zhang et al., 2024c)
+22.1 (Chen et al., 2024c)
+1.0
+14.9
+65.4
+59.9
+46.2
+RealWorldQA (X.AI, 2024a)
+72.2 (Chen et al., 2024c)
+60.1
+75.4
+77.8
+70.1
+62.9
+MMEsum (Fu et al., 2023)
+2414.7 (Chen et al., 2024c)
+1920.0
+2328.7
+2482.7
+2326.8
+1872.0
+MMBench-ENtest (Liu et al., 2023d)
+86.5 (Chen et al., 2024c)
+79.7
+83.4
+86.5
+83.0
+74.9
+MMBench-CNtest (Liu et al., 2023d)
+86.3 (Chen et al., 2024c)
+80.7
+82.1
+86.6
+80.5
+73.5
+MMBench-V1.1test (Liu et al., 2023d)
+85.5 (Chen et al., 2024c)
+78.5
+82.2
+85.9
+80.7
+72.2
+MMT-Benchtest (Ying et al., 2024)
+63.4 (Chen et al., 2024b)
+-
+65.5
+71.7
+63.7
+54.5
+MMStar (Chen et al., 2024a)
+67.1 (Chen et al., 2024c)
+62.2
+63.9
+68.3
+60.7
+48.0
+MMVetGPT-4-Turbo (Yu et al., 2024)
+67.5 (OpenAI., 2023)
+66.0
+69.1
+74.0
+62.0
+49.5
+HallBenchavg (Guan et al., 2023)
+55.2 (Chen et al., 2024c)
+49.9
+55.0
+58.1
+50.6
+41.7
+MathVistatestmini (Lu et al., 2024a)
+69.0 (X.AI, 2024b)
+67.7
+63.8
+70.5
+58.2
+43.0
+MathVision (Wang et al., 2024)
+30.3 (OpenAI, 2023)
+-
+30.4
+25.9
+16.3
+12.4
+MMMU-Pro (Yue et al., 2024)
+46.9 (Team et al., 2023)
+51.5
+51.9
+46.2
+43.5
+37.6
+Table 3: Performance of Qwen2-VL and GPT-4o on internal multilingual OCR benchmarks.
+Language
+Korean
+Japanese
+French
+German
+Italian
+Russian
+Vietnamese
+Arabic
+GPT-4o
+87.8
+88.3
+89.7
+88.3
+74.1
+96.8
+72.0
+75.9
+Qwen2-VL-72B
+94.5
+93.4
+94.1
+91.5
+89.8
+97.2
+73.0
+70.7
+3.1
+Compare to SOTAs
+We evaluate the visual capabilities of our model through various visual benchmarks, video tasks, and agent-
+based assessments. Qwen2-VL demonstrates highly competitive performance at the same scale, achieving
+new state-of-the-art (SoTA) results. Overall, our 72B model consistently delivers top-tier performance
+across most evaluation metrics, frequently surpassing even closed-source models such as GPT-4o (OpenAI,
+2024) and Claude 3.5-Sonnet (Anthropic, 2024). Notably, it exhibits a significant advantage in document
+understanding tasks. However, in the MMMU (Yue et al., 2023) benchmark, our model still lags behind
+GPT-4o to some extent, indicating that Qwen2-VL-72B has room for improvement when handling more
+complex and challenging problem sets.
+3.2
+Quantitative Results
+In this section, we present an extensive evaluation of the Qwen2-VL series across an array of datasets, offering
+a comprehensive understanding of the model’s capabilities in various aspects.
+3.2.1
+General Visual Question Answering
+To rigorously assess our models’ capabilities in general visual question answering tasks, we conduct extensive
+evaluations across a diverse array of state-of-the-art benchmarks: RealWorldQA (X.AI, 2024a), MMStar
+(Chen et al., 2024a), MMVet (Yu et al., 2024), MMT-Bench (Ying et al., 2024), MMBench (Liu et al., 2023d),
+MMbench-1.1 (Liu et al., 2023d), MME (Fu et al., 2023), and HallusionBench (Guan et al., 2023). The
+Qwen2-VL series exhibits exceptional performance across these benchmarks, with the 72B model consistently
+achieving or surpassing state-of-the-art results, while the 7B and 2B variants also demonstrate robust capa-
+bilities. On RealWorldQA, which evaluates real-world spatial comprehension, Qwen2-VL-72B achieves a
+9
+===== PAGE 10 =====
+Table 4: Performance of Qwen2-VL and other models on video benchmarks.
+Benchmark
+Previous SoTA
+Gemini 1.5-Pro
+GPT-4o
+Qwen2-VL-72B
+Qwen2-VL-7B
+Qwen2-VL-2B
+MVBench (Li et al., 2024)
+69.6
+-
+-
+73.6
+67.0
+63.2
+PerceptionTesttest (Patraucean et al., 2024)
+66.9
+-
+-
+68.0
+62.3
+53.9
+EgoSchematest (Mangalam et al., 2023)
+62.0
+63.2
+72.2
+77.9
+66.7
+54.9
+Video-MME(wo/w subs) (Fu et al., 2024)
+66.3/69.6
+75.0/81.3
+71.9/77.2
+71.2/77.8
+63.3/69.0
+55.6/60.4
+Table 5: Performance Comparison of Qwen2-VL-72B across various agent benchmarks and GPT-4o. SR, GC,
+TM and EM are short for success rate, goal-condition success, type match and exact match. ALFRED, R2R
+and REVERIE are performance in valid-unseen.
+Benchmark
+Metric
+Previous SoTA
+GPT-4o
+Qwen2-VL-72B
+General
+FnCall
+TM
+-
+90.2
+93.1
+EM
+-
+50.0
+53.2
+UI Operations
+AITZ (Zhang et al., 2024b)
+TM
+83.0 (Hong et al., 2023)
+70.0
+89.6
+EM
+47.7 (Zhan and Zhang, 2023)
+35.3
+72.1
+Card Games
+Number Line (Zhai et al., 2024)
+SR
+89.4 (Zhai et al., 2024)
+91.5
+100.0
+BlackJack (Zhai et al., 2024)
+SR
+40.2 (Zhai et al., 2024)
+34.5
+42.6
+EZPoint (Zhai et al., 2024)
+SR
+50.0 (Zhai et al., 2024)
+85.5
+100.0
+Point24 (Zhai et al., 2024)
+SR
+2.6 (Liu et al., 2023b)
+3.0
+4.5
+Robotic Control
+ALFRED (Shridhar et al., 2020a)
+SR
+67.7 (Lu et al., 2023)
+-
+67.8
+GC
+75.3 (Lu et al., 2023)
+-
+75.8
+Navigation
+R2R (Anderson et al., 2018)
+SR
+79.0 (Chen et al., 2022)
+43.7
+51.7
+REVERIE (Qi et al., 2020)
+SR
+61.0 (Sigurdsson et al., 2023)
+31.6
+31.0
+score of 77.8, surpassing both the previous state-of-the-art (72.2) and formidable baselines such as GPT-4o
+(75.4), thus demonstrating superior understanding of physical environments. For MMStar, a benchmark
+designed to assess genuine multimodal capabilities through visually indispensable samples, Qwen2-VL-72B
+attains 68.3, outperforming the previous best of 67.1 and highlighting its proficiency in integrating visual
+and textual information. On MMVet, which evaluates the integration of core vision-language capabilities
+across 16 complex multimodal tasks, Qwen2-VL-72B achieves a remarkable 74.0, significantly outperforming
+strong competitors including GPT-4V (67.5) and showcasing its versatility in addressing diverse multimodal
+challenges. In the MMT-Bench evaluation, which assesses advanced reasoning and instruction following
+across 32 core meta-tasks and 162 subtasks in multimodal understanding, Qwen2-VL-72B achieves 71.7,
+markedly surpassing the previous best (63.4) and demonstrating its prowess in applying expert knowledge
+and executing deliberate visual recognition, localization, reasoning, and planning. On MMBench, which
+evaluates fine-grained abilities across 20 dimensions, Qwen2-VL-72B exhibits strong performance, achieving
+86.5 on the English test set, matching the state-of-the-art, and 86.6 on the Chinese test set, establishing a
+new benchmark. For MME, which measures a wide spectrum of perception and cognition abilities across 14
+subtasks, Qwen2-VL-72B achieves a cumulative score of 2482.7, significantly outperforming the previous best
+(2414.7), underscoring its advanced capabilities in both visual perception and high-level cognition tasks.
+These comprehensive results underscore the Qwen2-VL series’ exceptional proficiency in general visual
+question answering tasks. The models demonstrate advanced capabilities in real-world spatial comprehension,
+genuine multimodal integration, complex reasoning, instruction following, and a broad range of perception
+and cognition tasks. The consistent superior performance across diverse benchmarks, particularly the
+outstanding results of the 72B model, positions the Qwen2-VL series as a leading solution in the field of
+visual question answering. Our models excel in handling visually indispensable tasks, integrating core
+vision-language capabilities, and demonstrating expertise across diverse multimodal scenarios, ranging from
+fundamental perception tasks to complex reasoning and planning. This exhaustive evaluation highlights the
+Qwen2-VL series’ versatility and effectiveness in addressing the multifaceted challenges posed by state-of-
+the-art multimodal benchmarks, thereby setting a new standard for large vision-language models.
+10

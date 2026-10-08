@@ -1,0 +1,1705 @@
+                                        LMDX: Language Model-based Document Information
+                                                         Extraction and Localization
+
+                                             Vincent Perot1*, Kai Kang2, Florian Luisier2, Guolong Su1,
+                                        Xiaoyu Sun2, Ramya Sree Boppana2, Zilong Wang5, Zifeng Wang3,
+
+                                                   Jiaqi Mu1, Hao Zhang4, Chen-Yu Lee3, Nan Hua1
+                                                              1Google DeepMind 2Google Cloud
+
+                                                   3Google Cloud AI Research 4Google 5UC San Diego
+
+arXiv:2309.10952v2 [cs.CL] 21 Jun 2024                        Abstract                          However, document information extraction still re-
+                                                                                                mains challenging for mainstream systems.
+                                             Large Language Models (LLM) have revolu-
+                                             tionized Natural Language Processing (NLP),           In particular, information in semi-structured
+                                             improving state-of-the-art and exhibiting emer-    forms is organized in complex layout across many
+                                             gent capabilities across various tasks. However,   possible templates, which requires deep under-
+                                             their application in extracting information from   standing of the document context, spatial alignment
+                                             visually rich documents, which is at the core of   among the different segments of text, and tabular
+                                             many document processing workflows and in-         arrangement of hierarchical entities (we define hi-
+                                             volving the extraction of key entities from semi-  erarchical entities as entities that are composed of
+                                             structured documents, has not yet been success-    logically grouped leaf entities, e.g. line items on an
+                                             ful. The main obstacles to adopting LLMs for       invoice composed of item description, quantity and
+                                             this task include the absence of layout encod-     price, or deduction items on a paystub composed of
+                                             ing within LLMs, which is critical for high        deduction type and amount, etc.). Moreover, since
+                                             quality extraction, and the lack of a grounding    some business document automation workflows
+                                             mechanism to localize the predicted entities       require certain level of accuracy, they are often in-
+                                             within the document. In this paper, we intro-      tegrated with human-in-the-loop interactions for
+                                             duce Language Model-based Document Infor-          auditing and correction of predictions, requiring
+                                             mation EXtraction and Localization (LMDX),         knowing the precise location of extracted entities
+                                             a methodology to reframe the document infor-       to make it a tractable task for a human rater. Fi-
+                                             mation extraction task for a LLM. LMDX en-         nally, since a quasi-infinite number of document
+                                             ables extraction of singular, repeated, and hier-  types exist, and that organizations have limited an-
+                                             archical entities, both with and without training  notation resources, most parsers are built with very
+                                             data, while providing grounding guarantees and     small amount of training data. From those com-
+                                             localizing the entities within the document. Fi-   plexities emerge the following desiderata of docu-
+                                             nally, we apply LMDX to the PaLM 2-S and           ment information extraction systems: they should
+                                             Gemini Pro LLMs and evaluate it on VRDU            (1) support high-quality extraction of singular,
+                                             and CORD benchmarks, setting a new state-of-       repeated, and hierarchical entities, while (2) lo-
+                                             the-art and showing how LMDX enables the           calizing those entities in the document, and (3)
+                                             creation of high quality, data-efficient parsers.  do so with very low or no data annotation cost.
+
+                                        1 Introduction                                             So far, no publicly disclosed system has been
+                                                                                                able to address all of those desiderata. Cur-
+                                        The recent advent of transformers (Vaswani et al.,      rent mainstream document IE systems are based
+                                        2017) and self-supervised pretraining procedures        on sequence-tagging and sequence-generation.
+                                        has led to significant progress in Visually Rich Doc-   Sequence-tagging approaches (Palm et al., 2017;
+                                        ument (VRD) Understanding. Within that field,           Lee et al., 2021, 2022, 2023a; Wang et al., 2023c)
+                                        the task of document information extraction (IE),       classifies each token into Inside-Outside-Begin
+                                        which consists of extracting key entities within a      (IOB) tags (Ramshaw and Marcus, 1995), which
+                                        semi-structured document (e.g. invoice, tax form,       support extraction and localization of leaf entities.
+                                        paystub, receipt, etc) given a predefined schema,       However, it is non-trivial to extend these meth-
+                                        has received a lot of attention from industry and       ods for hierarchical entities. Sequence-generation
+                                        academia due to its importance and wide applicabil-     based methods (Powalski et al., 2021; Kim et al.,
+                                        ity to intelligent document processing workflows.
+
+                                            * Correspondence to <vperot@google.com>.
+2022) treats extraction as text generation with auto-   establishing a new state-of-the-art, and pro-
+regressive decoders (Sutskever et al., 2014). Al-       vide extensive study of the different core de-
+though this line of work allows to predict hierarchi-   signs to demonstrate their effectiveness.
+cal entities, it does not allow localizing entities in
+the document. Moreover, both categories require         Table 1: Comparison of document information extrac-
+significant human annotation cost to ensure a high      tion systems. Unlike mainstream document IE systems,
+quality extraction. Thus, a unified IE framework        LMDX enables the zero-shot extraction, including hier-
+addressing all three desiderata is highly valuable.     archical entities, all while localizing its predictions.
+
+   In parallel, Large Language Models (LLMs)            Document Information         Hierarchical Entity Zero-shot
+(OpenAI, 2023a; Google et al., 2023; Hoffmann             Extraction Systems             entity localization support
+et al., 2022) have revolutionized Natural Language
+Processing, showing the capabilities to solve di-       LayoutLMv3 (Huang et al., 2022),      
+verse tasks with an instruction (Wei et al., 2022)       FormNetV2 (Lee et al., 2023a),
+or a few demonstrations attached to the prompt
+(Brown et al., 2020). This paradigm shift opens         Donut (Kim et al., 2022)              
+the possibility of extracting entities while address-
+ing all the aforementioned desiderata, but using        DocLLM (Wang et al., 2023a)           
+LLMs for VRD IE has been underexplored. Wang
+et al. (2023a) proposes a document-centric LLM          LMDX (Ours)                           
+and frames IE as a question-answer task, enabling
+zero-shot extraction but lacking support of local-      2 Related Work
+ization and hierarchical entity extraction. Further-
+more, this can suffer from hallucinations, a com-       Framing IE from VRD. Information Extraction
+mon issue with LLMs (Huang et al., 2023).               from VRD is a complex task that can be framed
+                                                        in a variety of ways. Many approaches divide
+   This motivates us to introduce Language Model-       the problem in two sub-tasks: a text recogni-
+based Document Information EXtraction and Lo-           tion/serialization step, typically achieved by an
+calization (LMDX), a principled methodology for         Optical Character Recognition (OCR) service, fol-
+leveraging existing LLMs for information extrac-        lowed by a parsing step, which finds the relevant
+tion and localization on visually-rich documents,       entity values from the recognized text. Xu et al.
+meeting all three identified desiderata of extraction   (2021); Appalaraju et al. (2021) frame this parsing
+systems and detailed in Figure 1. A comparison of       step as Named Entity Recognition (NER), encoding
+LMDX characteristics and other document infor-          each token with a transformer encoder and classi-
+mation extraction systems can be found at Table 1.      fying each document token into IOB tags, allow-
+Our contributions can be summarized as follows:         ing extraction and localization of leaf entities only.
+                                                        Other approaches treat extraction as a sequence
+   · We present a principled recipe that enables        generation problem. Powalski et al. (2021) adds
+      LLMs to perform the document IE task on leaf      an auto-regressive decoder on top of a text-layout-
+      and hierarchical entities with precise entity     image encoder, all initialized from T5 (Raffel et al.,
+      localization, including without any training      2020). This enables to predict hierarchical entities,
+      data, and using only the simple text-in, text-    but not localize entities in the document. While
+      out interface that is applicable to LLMs.         LMDX still frames VRD IE as a sequence gener-
+                                                        ation task, our work contrasts with prior work by
+   · We propose a layout encoding scheme that           combining the advantages of the different framings
+      communicates spatial information to the LLM       as shown in Table 1, supporting hierarchical enti-
+      without any changes to its architecture.          ties, zero-shot extraction and localizing the entities
+                                                        through the introduction of coordinate tokens.
+   · We introduce a decoding algorithm that trans-      VRD Representation Learning. As VRDs con-
+      forms the responses from the LLM into ex-         tain both textual and visual elements whose spatial
+      tracted entities and their corresponding bound-   position is crucial for their understanding, many
+      ing boxes on the document, while discarding       works explore custom architectures and pretrain-
+      any LLM hallucination.                            ing strategies to learn the relation between textual,
+                                                        layout and image modalities (Lee et al., 2023a;
+   · We systematically evaluate the data efficiency     Appalaraju et al., 2023; Zhang et al., 2022). Xu
+      of LMDX across multiple public benchmarks,        et al. (2020) uses a separate image encoder before
+                                                        adding the output as feature to the token encodings,
+ Document               Document chunks               LLM Prompts                                                                                                                                                                                                                                                                                                                                         LLM Completions                                                                                                                                 Final Extraction
+(multi-page)                     (xN)                      (xN)                                                                                                                                                                                                                                                                                                                                                  ( x NK )
+
+                                                      <A..D}<<<<{.}DA<<.<{</D"TE"}..p8"//TD/p.8.."axp"o.Drs]0lTp}Do0a""."T".eca,5uptlopsir5so]ollacsucestknrbr0r0"uck,uieers"m>aoLotukaemtniLkdup>be_coiLdSm>dtaSmLe>etretuAeulntti_netordAeicnacoittem__tnltoirl>teortt2t_>atdenrxm"n>_"e_5xepulae>r"p:i:>|mtr"m|":d"r"43b:eiy"x:["i""38"cey"":x:,c{|r"e|:"[e"0""{,"y""5y"::,:",""I"""n,fLerLeMnce  {{x""""x"""rl""|roA"eippryJeADpntrrudypt8paeoo"nape0li_ddlr,ei5eiluuel_0etccd2eLertt39rSaL"m__8t,t"/":ip|:eoA:rd0r2"["i5:e0{:c"22e,53x"|x:4|3y"y,",  {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           "retailer":{
+              Chunking                      Prompt                                                                                                                                                                                                                                                                                                                                                   "$100.00 72|43"       Decoding                                                                                                                          "value":"Apple",
+                                          Generation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         "location":{
+                                                                                                                                                                                                                                                                                                                                                                                                     }],                                                                                                                                                       "page":0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "bbox":[18,04,47,08]
+                                                                                                                                                                                                                                                                                                                                                                                                     }<"/"Esl"xupi"tbDnrrt8edao0__ctn5itau0tilmeLo"bmLn:e/">A:rn"[ux:{lxl|yy",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }},
+                                                                                                                                                                                                                                                                                                                                                                                                     "item_price":                                                                                                                                         "line_item":[{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             "product_id":{
+                                                                                                                                                                                                                                                                                                                                                                                                     "$499.00 72|58"                                                                                                                                           "value":"D8050LL/A",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "location":{
+                                                                                                                                                                                                                                                                                                                                                                                                     }],                                                                                                                                                         "page":0, ...
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               }},
+                        Target Schema                                                                                                                                                                                                                                                                                                                                                                "subtotal":                                                                                                                                             "product_price":{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "value":"$100.00",
+                                                                                                                                                                                                                                                                                                                                                                                                     "$499.00 78|74"                                                                                                                                           "location":{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 "page":0, ...
+                        {                             <Extraction>                                                                                                                                                                                                                                                                                                                                   }                                                                                                                                                         }},...],
+                         "retailer":"",                                                                                                                                                                                                                                                                                                                                                              </Extraction>                                                                                                                                         "subtotal":{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             "value":"$499.00",
+                        "line_item":[{                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       "location":{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "page": 1,
+                        "product_id":"",                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       "bbox": [70,73,90,77]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             }},
+                        "product_price":""
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
+                         }],                 Input: Red              Intermediate results: Grey
+                         "subtotal":""       Output: Green           Coordinate Tokens: Blue
+                        }
+
+Figure 1: Overview of the LMDX methodology, decomposing the information extraction and localization task in 4
+stages in order to frame it for an LLM. From the document, we generate LLM prompts containing both the text
+content and coordinate tokens (in color blue), which communicates the layout modality (needed for a high-quality
+extraction) and act as unique identifiers of the text segments. The prompts also contain the target schema, enabling
+zero-shot information extraction. The LLM completions, in JSON format, naturally support hierarchical entity
+extraction (e.g. line_item), and include both entity values and segment identifiers, enabling both entity localization
+(i.e. computing entity bounding box) and removing LLM hallucination through our decoding algorithm.
+
+while Huang et al. (2022) jointly models the page                   datasets in instruction tuning format, building a
+image patches alongside the tokens, using a word-                   layout-aware LLM with various document under-
+patch alignment self-supervised pretraining task to                 standing capabilities. In contrast, LMDX focuses
+learn the connection between the modalities. Hong                   on IE specifically, with an emphasis on hierarchical
+et al. (2021) proposes to encode the relative 2D                    entity and entity localization support.
+distances of text blocks in the attention of the trans-
+former, and learning from unlabeled documents                       3 LMDX Methodology
+with an area-masking strategy. Kim et al. (2022);
+Lee et al. (2023b) foregoes the text modality com-                  Overall, our pipeline is divided into four stages:
+pletely, using a Vision Transformer encoder with                    chunking, prompt generation, LLM inference and
+an auto-regressive decoder pretrained on a pseudo-                  decoding, detailed in the following sections. An
+OCR and region masking task on large document                       overview with a simple example can be found in
+image corpora. Unlike prior work, LMDX encodes                      Figure 1, with the input and output of each stage
+the layout modality solely through text coordinate                  showcased. In this example, the target extraction
+tokens, hence allows reusing LLMs with no ar-                       schema contains two leaf entity types retailer and
+chitecture change and foregoing expensive vision                    subtotal, and one hierarchical entity type line_item,
+encoders, while achieving state-of-the-art results.                 composed of a product_id and a product_price.
+LLMs for Extraction has mostly been studied                         Input Document. The input to our pipeline is the
+in the text domain (Keraghel et al., 2024), either                  document's text segments (lines and words) along
+generally (Laskar et al., 2023) or domain-specific                  with their corresponding spatial position (bounding
+(De Toni et al., 2022; Hu et al., 2024). Wang et al.                box) on the pages, typically obtained with an OCR
+(2023b) uses a LLM to insert special tokens to mark                 service or a PDF rendering engine.
+the boundaries of target entities. Ashok and Lipton
+(2023) proposes a NER framework with in-context                     3.1 First Stage: Chunking
+learning demonstrations, prompting the LLM to
+output an entities list with explanations justifying                While some LLMs support long context (hundreds
+its matches with the provided entity definitions.                   of thousands of tokens), not all LLMs can fit the en-
+Yet, LLMs remain underexplored for IE on VRDs.                      tire document within its prompt, as documents can
+Wang et al. (2023a) uses unlabeled document cor-                    be hundreds of pages long. Thus, the document is
+pora and turns existing labeled VRD understanding                   divided into document chunks so that each is small
+                                                                    enough to be processed by the LLM. To achieve
+                                                                    this, we first divide the document into individual
+pages, then we iteratively remove the last line seg-    ments with 2 coordinates [xcenter, ycenter] and B =
+ments until the prompt containing this chunk is be-     100 quantization buckets worked best, as detailed
+low the maximum input token length of the LLM.          in Appendix A.12. Hence, we've adopted that co-
+Lastly, we group those removed lines as a new doc-      ordinate tokenization scheme in our experiments.
+ument page, and repeat the same logic until all         Task Description. The task description is simply a
+chunks are below the input token limit of the LLM.      short explanation of the task to accomplish. In our
+At the end of this stage, we have N chunks. The         experiments, we set it to the following: From the
+decision to first divide the document by page stems     document, extract the text values and tags of the
+from the observation that entities rarely cross page    following entities:.
+boundaries, and as such this chunking scheme will       Schema Representation. The schema is repre-
+have minimal impact on the final extraction qual-       sented as a structured JSON object, where the keys
+ity. The algorithm is described in pseudo-code in       are the entity types to be extracted, and the values
+Appendix A.1.                                           correspond to their occurrence (single or multiple)
+                                                        and sub-entities (for hierarchical entities). For in-
+3.2 Second Stage: Prompt Generation                     stance, {"foo": "", "bar": [{"baz": []}]} means that
+                                                        the LLM should extract only a single entity of type
+The prompt generation stage takes in the N docu-        foo and multiple hierarchical entities of type bar,
+ment chunks and creates a LLM prompt for each of        that could each hold multiple entities of type baz.
+them. As seen in Figure 2, our prompt design con-
+tains the document representation, a description of        After this step, we have N prompts, one for each
+the task, and the target schema representation con-     document chunk. An example of a prompt on a doc-
+taining the entities to extract. XML-like tags are      ument can be found in Appendix A.8, Figure 10.
+used to define the start and end of each component.
+                                                        3.3 Completion Targets
+                  <Document>
+                  {DOCUMENT_REPRESENTATION}             In this section, we describe the expected LLM com-
+                  </Document>                           pletion format, which can be observed in LLM Com-
+                  <Task>                                pletions section of Figure 1. Like the schema, the
+                  {TASK_DESCRIPTION}                    completion is a JSON structured object with the
+                  {SCHEMA_REPRESENTATION}               keys being the entity types, and values being the
+                  </Task>                               extracted information from the document chunk.
+                  <Extraction>                          JSON was chosen as a format for the completion
+                                                        and schema since it supports hierarchical objects
+        Figure 2: Structure of the LLM prompts.         (hence hierarchical entities), is very token-efficient,
+                                                        and emitting JSON is within mainstream LLMs'
+Document Representation. The chunk content is           capabilities (Sengottuvelu, 2023; OpenAI, 2023b).
+represented in the prompt as the concatenation of       Note that the keys in the completion have the same
+all its segment texts (lines or words from OCR),        ordering, occurrence and class (hierarchical or leaf)
+suffixed with the coordinates of those segments         as the entity types in the schema. The values of
+(derived from the bounding boxes) in the follow-        leaf entities must follow a specific format:
+ing format: <segment text> XX|YYsegment. Coor-
+dinate tokens, XX and YY, are built by normalizing            <text on segment1> XX|YYsegment1\n
+the segment's X and Y coordinates, and quantiz-             <text on segment2> XX|YYsegment2\n ...
+ing them in B buckets, assigning the index of that
+bucket as the token for that coordinate.                   An entity can span multiple (potentially disjoint)
+                                                        text segments (lines or words). For each segment
+   Encoding the coordinates as tokens within the        of the entity, the value contains the entity text on
+prompt allows us to communicate the layout modal-       that segment, along with the coordinate tokens of
+ity to the LLM, without any change to its architec-     that segment, which act as a segment identifier,
+ture. There are many variations to that scheme:         uniquely identifying the segment, and allowing us
+using line versus words as segment, the granular-       to localize the entities and ground the model predic-
+ity of the quantization, and the number of coordi-      tion (e.g. making sure the extracted value is not a
+nates to use per segment (e.g. [xcenter, ycenter] ver-  hallucination), as will be detailed in Section 3.5. Fi-
+sus [xmin, ymin, xmax, ymax]). Appendix A.4 shows       nally, missing entity types are explicitly completed
+how those variations affect the prompt token length.    by the model with null for singular types, and []
+Experimentally, we've found using line-level seg-
+for repeated types. Samples of completions can be        in Appendix A.10.
+found in Appendix A.8, Figure 10.                        Prediction Merging. We first merge the predicted
+                                                         entities for the same document chunk from the K
+3.4 Third Stage: LLM Inference                           LLM completions through majority voting (Wang
+                                                         et al., 2022). For each entity type, we gather the pre-
+In this stage of the pipeline, we run inference on       dicted entities, including empty predictions, across
+the LLM with the N prompts. For each prompt, we          the K completions. The most common predic-
+sample K completions from the LLM (for a total           tion(s) are selected as the predicted value for that
+of N K completions for the entire document) using        entity type. We then merge the predictions among
+TopK sampling. This randomness in the sampling           the N document chunks by concatenating them to
+allows to do error correction (e.g. if a response is     obtain the document level predictions.
+not valid JSON, have hallucinated segment coor-          Prediction Merging for hierarchical entities. For
+dinate identifier, etc), and increase the extraction     hierarchical entities, we use the entire predicted
+quality as will be shown in Section 4.3. We use a        tree value from a single LLM completion, as this
+fixed random seed to get a deterministic inference.      method best preserves the parent-child relationship
+                                                         predicted by the model. For each top-level hierar-
+3.5 Fourth Stage: Decoding                               chical entity type, we perform majority voting on
+                                                         all affiliated leaf, intermediate and top-level entity
+In this stage (Decoding in Figure 1), we parse the       types among K completions as if they are flattened.
+LLM completions into entities and their locations.       We then equally tally the votes to determine which
+Conversion to structured entities. We begin by           completion to use for the prediction, and select the
+parsing each LLM completion as a JSON object.            most common one for that hierarchical entity.
+Completions that fail to parse are discarded. For
+each key-value pair in the JSON object, we inter-        4 Evaluation
+pret the key as the entity type and parse the value to
+get the entity text and bounding box (as detailed in     We seek to evaluate the effectiveness of LMDX
+the next paragraph). Predicted entity types that are     on public IE benchmarks, and apply it to two
+not in the target extraction schema are discarded.       distinct LLMs to validate the generality of the
+If the model unexpectedly predicts multiple values       methodology: PaLM 2-S (Google et al., 2023)
+for single-occurrence entity types, we use the most      and Gemini Pro (Anil et al., 2023), which we call
+frequent value as the final predicted value. Hier-       LMDXPaLM 2-S and LMDXGemini Pro respectively.
+archical JSON objects are recursively parsed as
+hierarchical entities in a similar manner. This algo-       Firstly, starting from their original checkpoint,
+rithm is described in pseudo-code in Appendix A.3.       we finetune those LLMs on the prompts and com-
+Entity Value Parsing. We expect the JSON value           pletions detailed in Section 3.2 and 3.3 on a data
+to include both text extractions and segment iden-       mixture containing a variety of (document, schema,
+tifiers for each predicted entity, as described in       extraction) tuples. In particular, this data mix-
+Section 3.3. We first parse the value into its (seg-     ture contains the Payment dataset (Majumder et al.,
+ment text, segment identifier) pairs. For each pair,     2020), along with a diverse set of publicly available
+we look up the corresponding segment in the origi-       PDF form templates obtained from government
+nal document using the segment identifier and ver-       websites that we filled with synthetic data using an
+ify that the extracted text is exactly included on that  internal tool, and annotated for schema and entities
+segment. The entity is discarded if that verification    to extract. The goal of this tuning is to obtain a
+fails, ensuring LMDX discards all LLM halluci-           Base Entity Extractor checkpoint by training the
+nations. Finally, once we have the entity location       model to learn the IE task along with our desired
+on all its segments, we get the entity bounding          extraction syntax. No document or schema con-
+box by computing the smallest bounding box en-           tained in the base extraction training phase overlap
+compassing all the words included in the entity.         with the documents and schemas used in our target
+Entity values with any segments that fail to ground      benchmarks, hence we use those LLMs for zero-
+(invalid entity value format, non-existent segment       shot information extraction evaluation on the target
+identifier, or non-matching segment text) in the         benchmarks.
+original document are discarded. The entity value        Finetuned Performance. We are also interested in
+parsing algorithm is described in pseudo-code in         evaluating how data-efficient LMDX is (e.g. how
+Appendix A.2, and parsing errors rates are detailed
+quickly it learns information extraction on a new            train (|D| = 800), dev and test splits. To eval-
+document type). To answer this, starting from the            uate LMDX's data efficiency, we further sample
+Base Entity Extractor checkpoint, we finetune the            the first |D| = 10/50/100/200 documents from
+LLM directly on the target benchmark.                        the train split. For each of those data setup, we
+Parameters. For training, we finetune using a                finetune LMDX for 12000 steps. For comparison,
+batch size of 8, a dropout probability of 0.1 and a          we also train and evaluate state-of-the-art baselines
+learning rate of 10-6 with a standard cross-entropy          LayoutLMv3LARGE and Donut. Those baselines
+loss for 4000 steps on TPUv4 (Jouppi et al., 2023).          are detailed in Appendix A.7.
+Once training is done, for finetuned experiments,            Baselines In the zero-shot setting, we compare
+we select the checkpoint with the lowest loss on the         LMDX to other LLM baselines: GPT-3.5, Gem-
+dev set, and report performance on the test set. For         ini Pro (Anil et al., 2023), and PaLM 2-S (Google
+LLM inference, we use a temperature of 0.5 and a             et al., 2023) that we prompt with the raw OCR text
+TopK of 40, sampling 16 responses for each chunk             and IE instruction (called GPT-3.5+OCR, Gemini
+processed by the LLM, as described in Section 3.4.           Pro+OCR and PaLM 2-S+OCR respectively). We
+Finally, for both training and inference, we use an          also compare LMDX with strong Vision-Language
+input token length of 6144 and output token length           models: LLaVA-v1.5-13B (Liu et al., 2023), Gem-
+of 2048. We use line-level segments and only two             ini Pro, and GPT-4V (OpenAI, 2023a) that we
+coordinates [xcenter, ycenter] with 100 quantization         prompt with the document page image and IE in-
+buckets, as supported by Appendix A.12.                      structions (called LLaVA-v1.5-13B+Image, GPT-
+                                                             4V+Image, and Gemini Pro+Image). Those base-
+4.1 Benchmarks                                               lines are fully detailed in Appendix A.6. Unlike
+                                                             LMDX, those large model baselines do not local-
+Visually Rich Document Understanding                         ize their predictions. In the finetuned setting, we
+(VRDU). Wang et al. (2023d) introduces two                   compare LMDXPaLM 2-S to popular VRD IE base-
+public visually-rich documents IE benchmarks:                lines. For VRDU, we compare to its published
+Registration Form, containing 6 semantically rich            baselines (Wang et al., 2023d), LayoutLM/v2/v3
+entity types, and Ad-buy Form, containing 14 entity          and FormNet. For CORD, we train and eval-
+types with one hierarchical line_item entity type.           uate state-of-the-art baselines LayoutLMv3 and
+For each benchmark, VRDU proposes samples                    Donut. Those baselines are detailed in Ap-
+of 10, 50, 100 and 200 train documents with                  pendix A.7. Following prior work (Lee et al., 2022,
+high-quality OCR1 which we use to evaluate the               2023a; Xu et al., 2020, 2021), for all models lever-
+data efficiency of LMDX. It also offers different            aging the text modality, we use the benchmarks'
+tasks to evaluate the generalization powers of               provided OCR, ensuring a fair comparison.
+extraction systems: Single Template Learning
+(STL) where train/test splits share the same single          4.2 Results
+template, Unseen Template Learning (UTL) where
+train/test contain disjoint sets of templates, and           VRDU results are presented in Table 2. In
+Mixed Template Learning (MTL) where train/test               zero-shot (|D| = 0) setting, LMDXPaLM 2-S and
+contain overlapping sets of templates. We report             LMDXGemini Pro have higher extraction quality than
+Micro-F1 through the provided evaluation tool. For           all other large models baselines, including the
+VRDU, we only run the finetuning experiments                 ones using the same LLM and OCR or image,
+using LMDXPaLM 2-S, given the significant cost of            showing improvements brought by the LMDX
+finetuning on all its tasks and train split sizes.           methodology itself. In finetuned setting on VRDU,
+Consolidated Receipt Dataset (CORD).2 Park                   LMDXPaLM 2-S is much more data efficient than the
+et al. (2019) introduces a benchmark of Indonesian           baselines: it is at 5.06% Micro-F1 of its peak per-
+receipts from shops and restaurants, with a target           formance at 10 training documents for Registration
+schema of 30 fine-grained entities, grouped into             Form Mixed Template (87.72% vs 92.78% Micro-
+menu, total and subtotal hierarchical entities. We           F1) while LayoutLMv2, the strongest finetuned
+adopt the evaluation tool from prior work (Kim               baseline, is within 19.75% of its peak performance
+et al., 2022) and report Micro-F1 on that bench-             (69.44% vs 89.19% Micro-F1), showcasing that it
+mark. For our experiments, we use the official               learns extraction on a new document type much
+                                                             faster. Moreover, LMDXPaLM 2-S generalizes better
+    1https://cloud.google.com/vision/docs/ocr                to unseen templates than finetuned baselines: on
+    2https://huggingface.co/datasets/naver-clova-ix/cord-v1
+Table 2: Results of LMDXPaLM 2-S and LMDXGemini Pro on the different tasks and training data size setups |D| of
+VRDU, with best and second best performing model results in bold and underlined respectively, with Micro-F1
+reported. We specify the modalities leveraged by each model (T  T ext, L  Layout, I  Image) and whether
+their entities are localized.
+
+                           Modality                    Registration Form                   Ad-buy Form
+                                    Localized?
+|D|  Model                                      Single Unseen Mixed Template Unseen        Mixed Template
+
+                                                Micro-F1 Micro-F1  Micro-F1       Micro-F1 Micro-F1 Line Item F1
+
+     LLaVA-v1.5-13B+Image  I                    5.29   5.05               5.00    0.38     0.34         0.00
+                                                68.97  69.44              65.34   31.84    31.95        4.45
+     GPT-4V+Image          I                    53.90  53.72              48.60   15.24    15.38        0.91
+                                                73.62  73.66              69.41   32.90    34.46        19.25
+     Gemini Pro+Image      I                    62.80  63.51              59.78   29.70    30.24        9.86
+                                                67.23  67.49              63.86   29.84    30.05        7.65
+0    Gemini Pro+OCR        T                    73.81  74.94              71.65   39.33    39.74        21.21
+     PaLM 2-S+OCR          T                    76.78  77.18              75.15   37.94    38.02        23.29
+
+     GPT-3.5+OCR           T
+
+     LMDXPaLM 2-S          T+L 
+
+     LMDXGemini Pro        T+L 
+
+     FormNet               T+L  74.22                  50.53              63.61   20.28    20.47        5.72
+                                                                          36.41   19.92    20.20        6.95
+     LayoutLM              T+L+I  65.91                25.54              69.44   25.17    25.36        9.96
+                                                                          60.72   10.01    10.16        5.92
+10   LayoutLMv2            T+L+I  80.05                54.21              87.72   54.82    54.35        39.35
+
+     LayoutLMv3            T+L+I  72.51                21.17
+
+     LMDXPaLM 2-S          T+L  90.88                  86.87
+
+     FormNet               T+L  89.38                  68.29              85.38   39.52    40.68        19.06
+                                                                          80.15   38.42    39.76        19.50
+     LayoutLM              T+L+I  86.21                55.86              84.13   41.59    42.23        20.98
+                                                                          81.36   38.43    39.49        19.53
+50   LayoutLMv2            T+L+I  88.68                61.36              91.42   75.70    75.08        65.42
+
+     LayoutLMv3            T+L+I  87.24                47.85
+
+     LMDXPaLM 2-S          T+L  93.06                  88.43
+
+     FormNet                T+L                 90.91  72.58              88.13   39.88    40.38        18.80
+                           T+L+I                88.70  63.68              86.02   41.46    42.38        21.26
+     LayoutLM              T+L+I                90.45  65.96              88.36   44.35    44.97        23.52
+                           T+L+I                89.23  57.69              87.32   41.54    42.63        22.08
+100  LayoutLMv2                                 93.97  89.70              92.41   75.99    78.05        69.77
+                            T+L 
+     LayoutLMv3
+
+     LMDXPaLM 2-S
+
+     FormNet                T+L                 92.12  77.29              90.51   42.87    43.23        21.86
+                           T+L+I                90.47  70.47              87.94   44.18    44.66        23.90
+     LayoutLM              T+L+I                91.41  72.03              89.19   46.31    46.54        25.46
+                           T+L+I                90.89  62.58              89.77   44.43    45.16        24.51
+200  LayoutLMv2                                 93.97  90.22              92.78   78.42    79.82        72.09
+                            T+L 
+     LayoutLMv3
+
+     LMDXPaLM 2-S
+
+Registration Form, LMDXPaLM 2-S has a drop less               display in Table 2 the F1 score on Ad-buy Form
+than 5% Micro-F1 on Unseen Template compared                  Mixed's line_item entity type. Overall, LMDX
+to Single Template across data regimes, while Lay-            has much higher Line Item F1 than the baselines
+outLMv2 see a drop between 19% and 27%.                       for all data regimes. In particular, LMDXPaLM 2-S
+                                                              has similar Line Item F1 at zero-shot than the best
+   On CORD (in Table 3), we observe similar                   finetuned baseline at 200 train documents (21.21%
+trends, reaching state-of-the-art on all but one data         versus 25.46% respectively). With all the training
+regime, highlighting the generality of the results.           data, LMDXPaLM 2-S scores a 72.09% Line Item
+Performance on Hierarchical Entities. To show-
+case extraction quality on hierarchical entities, we
+
+Table 3: Results of LMDXPaLM 2-S and LMDXGemini Pro on the different training data size setups |D| of CORD,
+compared to zero-shot (Large Models) and finetuned (LayoutLMv3 and Donut) baselines. Micro-F1 is reported,
+with best and second best performing model results in bold and underlined respectively.
+
+      Model        Modality   Localized?               |D|=0  |D|=10      |D|=50  |D|=100  |D|=200      |D|=800
+
+LLaVA-v1.5-13B          I                               5.97      -           -       -        -            -
+  GPT-4V+Image          I                              64.05      -           -       -        -            -
+                        I                              47.12      -           -       -        -            -
+Gemini Pro+Image       T                               59.57      -           -       -        -            -
+Gemini Pro+OCR         T                               55.85      -           -       -        -            -
+ PaLM 2-S+OCR          T                               48.92      -           -       -        -            -
+                        I                               0.00   26.15       65.68   71.81    75.85        81.55
+  GPT-3.5+OCR       T+L+I                               0.00   74.04       85.78   90.39    93.59        95.66
+      Donut           T+L                              66.95   90.02       91.40   91.48    93.40        94.51
+                      T+L                              66.03   89.45       91.66   91.16    93.76        95.57
+  LayoutLMv3
+ LMDXPaLM 2-S
+LMDXGemini Pro
+Table 4: Entity Localization Accuracy on Registration                           Effects of Coordinate Tokens. In this ablation, we
+Form and Ad-Buy Form Mixed Benchmarks, for models                               replace the coordinate tokens, which communicate
+supporting localization. Best result is in bold.                                the position of each line within the document, by
+                                                                                the index of that line. This index still acts as a
+                       Model |D|=0 |D|=10 |D|=50 |D|=100 |D|=200                unique identifier for the line segment (required for
+                                                                                entity localization) but does not communicate any
+Ad-buy Form Reg. Form     LayoutLM     N/A    98.71  99.69  99.63  99.69        position information. An example of a prompt with
+                         LayoutLMv2    N/A    99.00  99.54  99.72  99.75        line index can be found in Appendix A.8 Figure 11,
+                         LayoutLMv3    N/A    99.20  99.39  99.72  99.67        and per-entity F1 can be found in Appendix A.14
+                        LMDXPaLM 2-S   93.21  99.75  99.87  99.92  99.87        Table 9. As seen in Table 5, the coordinate tokens
+                       LMDXGemini Pro  94.43                                    are crucial to quality, leading +14.98% micro-F1.
+                                                -      -      -      -
+                                                                                Effects of Sampling Strategy. In this ablation,
+                          LayoutLM     N/A    92.60  95.24  95.09  95.38        we discard our strategy of sampling K = 16 com-
+                         LayoutLMv2    N/A    93.95  95.64  95.72  95.78        pletions per chunk, and instead sample a single
+                         LayoutLMv3    N/A    90.68  95.28  95.88  95.95        response. As seen in Table 5, this leads to a 1.5%
+                        LMDXPaLM 2-S   88.18  94.51  98.28  98.69  98.65        drop in micro-F1. While overall minor for qual-
+                       LMDXGemini Pro  92.51                                    ity, the sampling strategy corrects extraction format
+                                                -      -      -      -          mistakes (see parsing error rates in Appendix A.10),
+                                                                                leading to a successful extraction on all documents.
+F1, an absolute improvement of 46.63% over the
+best baseline LayoutLMv2. Finally, as LMDX en-                                  Effects of Missing Entity Types. In this ablation,
+codes the layout modality, it possesses much higher                             we study the effect of having the model's comple-
+zero-shot Line Item F1 than large models baselines.                             tions skip missing entity types in the completions
+                                                                                instead of explicitly outputting "type" : null for
+Entity Localization Accuracy. In order to eval-                                 those (See example in Appendix A.8, Figure 12).
+                                                                                As seen in Table 5, this leads to a 6.77% drop in
+uate the localization quality independently of the                              micro-F1 over explicitly outputting missing types.
+                                                                                We hypothesize that this is due to the fact that hav-
+extraction quality, we compute the Localization Ac-                             ing completions skip missing types means that, dur-
+                                                                                ing response generation, the model has to choose
+curacy of LMDX and all baselines that can localize                              with a single token computation budget within the
+                                                                                N remaining entity types which one is the next
+entities using the formula: AccuracyLocalization =                              present (essentially a N -way classification). Ex-
+NE+L                                                                            plicitly emitting missing entity types means the
+  NE                   where  NE+L     is     the  number   of  entities  cor-  model only has to copy the types directly from the
+                                                                                schema in the prompt, and has to do 2-way classifi-
+rectly extracted and localized, and NE is the num-                              cation within a single token computation budget to
+                                                                                declare if an entity is present or not (e.g. emit token
+ber of entities correctly extracted. Since LMDX                                 null if entity is missing or " if present), which is
+                                                                                an easier task.
+localizes at the line level, localization verification
+
+is done at the line-level as well, i.e. localization is
+
+considered correct if the prediction bounding box is
+
+covered by the groundtruth line-level bounding box
+
+by more than 80%. We present the results in Ta-
+
+ble 4. Overall, LMDXPaLM 2-S and LMDXGemini Pro
+
+can localize their predictions reliably at the line-
+
+level with the segment identifiers, with 88%-94%
+
+accuracy at zero-shot, and 98%-99% in finetuned
+
+cases, which is slightly higher than baselines.
+
+4.3 Ablation Study                                                              Table 5: Ablations of LMDX's core designs. Abla-
+                                                                                tions are done on VRDU Ad-Buy Mixed Template with
+In this section, we ablate different facets of the                              LMDXPaLM 2-S at |D| = 10 data size. Micro-F1 is re-
+LMDX methodology to highlight their importance.                                 ported. Overall, all components contribute to the final
+The results can be found in Table 5. For all abla-                              performance.
+tions, we evaluate LMDXPaLM 2-S on the VRDU
+Ad-Buy Form Mixed Template task at |D| = 10                                      LMDX     Without Without Without Without
+data size, only changing the ablated facet.                                     Micro-F1     EE Coordinate Sample Missing
+
+Effects of Base Entity Extraction Training. In                                     ()     Training Tokens Strategy Types
+this ablation, we remove the initial training on the
+varied data mixture and directly finetune on the                                  54.35    42.91     39.37    52.85 47.58
+VRDU target task. As seen in Table 5, skipping that                                       (-11.44)  (-14.98)  (-1.50) (-6.77)
+training leads to -11.44% micro-F1 as the model
+has to learn from scratch the task, the desired com-
+pletion format and coordinate tokens' semantics.
+          95                                                                                     Limitations
+
+          90                                                                                     We acknowledge the limitations of LMDX from
+                                                                                                 the following aspects to inspire future research in
+Micro-F1  85                                                                                     the field of information extraction and localization.
+
+          80                     LLLLMMMMDDDDXXXXPPGGaaeeLLmmMMiinn22ii       Random                Firstly, LMDX's input is text lines and their
+                                                                              Random             bounding boxes, usually coming from OCR. This
+          75                                                              S   Nearest Neighbors  means that LMDX can not extract non-textual enti-
+          70                                                             Pro  Nearest Neighbors  ties thus would not be able to extract an entity that
+                                                                                                 would be an image embedded in a document (e.g. a
+          65 |D|=0 |D|=1                                                  S                      product_image entity in a product webpage). This
+                                                                         Pro                     also limits performance in high-data scenarios, as
+                                                                                                 all page image information is discarded. Further-
+                          |D|=3  |D|=5                                        |D|=10             more, such input means that LMDX is sensitive to
+                                                                                                 errors from the OCR process (wrong reading order,
+Figure 3: In-Context Learning results on CORD with                                               incorrect line grouping, undetected text and erro-
+random and nearest neighbors retrieval methods for                                               neously recognized characters). Qualitatively, we
+LMDXPaLM 2-S and LMDXGemini Pro.                                                                 have found that a common error type for LMDX is
+                                                                                                 caused by OCR grouping multiple semantically dif-
+4.4 In-context Learning Performance                                                              ferent segments together (we give a deeper analysis
+                                                                                                 with concrete examples in Appendix A.11). Thus,
+In this section, we study how in-context learning                                                techniques aiming to improve this error type would
+(ICL) compares to finetuning. To do so, we test                                                  be a worthwhile future research direction.
+two methodologies: Random, which randomly se-
+lects |D| documents and extractions from the train                                                  Moreover, LMDX's localization mechanism is
+set, and Nearest Neighbors, which uses similarity                                                applied at the line level, where we verify that the
+based on SentenceT5 embeddings (Ni et al., 2021)                                                 predicted text is indeed present on the line. If
+to retrieve |D| documents to add in the LLM con-                                                 the entity text appears multiple times on the line,
+text. The results on CORD for LMDXPaLM 2-S and                                                   we don't have a definitive way to choose the cor-
+LMDXGemini Pro are shown in Figure 3. Overall,                                                   rect text. Thus, LMDX's localization and bound-
+while both methods increase the performance sig-                                                 ing boxes are not reliable beyond line-level gran-
+nificantly, nearest neighbors shows a clear advan-                                               ularity. While sufficient for greatly speeding up
+tage, matching the best random ICL performance                                                   human-in-the-loop interactions like prediction au-
+with only a single in-context example (86.43%                                                    diting/review, getting entity bounding boxes pre-
+versus 86.57% micro-F1 for LMDXPaLM 2-S), and                                                    cise at character-level would be beneficial, more
+matching the finetuned performance at |D| = 10                                                   natural-looking, and a worthy research direction.
+examples (90.33% versus 90.02% micro-F1), as
+examples from the same template are retrieved (see                                                  Lastly, LMDX relies on LLMs supporting thou-
+Appendix A.9). Beyond |D| = 10, the quality                                                      sands of tokens in input and output (as detailed
+plateaus as no more example fit in the prompt.                                                   in Appendix A.4), which is both computationally
+                                                                                                 expensive and slow, requiring the use of hardware
+5 Conclusion                                                                                     acceleration for acceptable latency and through-
+                                                                                                 put. We showcase a latency comparison between
+In this paper, we have introduced LMDX, a method-                                                popular solutions in Appendix A.13. General re-
+ology that enables using LLMs for information                                                    search in accelerating LLM inference (Shazeer,
+extraction on visually rich documents. With its                                                  2019; Ainslie et al., 2023; Leviathan et al., 2023;
+coordinate tokens and decoding strategy, LMDX                                                    Hong et al., 2023) would make LMDX more cost-
+allows the high-quality extraction of singular, re-                                              effective in production setting. Specifically for
+peated and hierarchical entities, while localizing                                               LMDX, the coordinate tokens represent a large
+the entities in the document. LMDX is data effi-                                                 part of the total number of tokens, so research
+cient, and even allows extraction at zero-shot on                                                on minimizing their number (e.g. by introducing
+entirely new document types and schemas. LMDX                                                    dedicated coordinate tokens within the LLM vo-
+can benefit from orthogonal research fields, and we                                              cabulary) would yield significant savings and be a
+continue the discussion in the Limitations section.                                              worthwhile direction for future work.
+
+Acknowledgements
+
+The authors would like to thank Tania Bedrax-
+Weiss, Riham Mansour, Slav Petrov, Yunhsuan
+Sung, Mike Kwong and Chun-Liang Li for their
+valuable feedback on the experiments and paper.
+The authors also thank Nikolai Glushnev for dis-
+cussions, along with the help naming LMDX.
+References                                               Rohan Anil Google, Andrew M. Dai, Orhan Firat,
+                                                            Melvin Johnson, Dmitry Lepikhin, Alexandre Pas-
+Joshua Ainslie, James Lee-Thorp, Michiel de Jong, Yury      sos, Siamak Shakeri, Emanuel Taropa, Paige Bai-
+   Zemlyanskiy, Federico Lebrón, and Sumit Sanghai.         ley, Zhifeng Chen, Eric Chu, Jonathan H. Clark,
+   2023. Gqa: Training generalized multi-query trans-       Laurent El Shafey, Yanping Huang, Kathy Meier-
+   former models from multi-head checkpoints. arXiv         Hellstern, Gaurav Mishra, Erica Moreira, Mark
+   preprint arXiv:2305.13245.                               Omernick, Kevin Robinson, Sebastian Ruder, Yi Tay,
+                                                            Kefan Xiao, Yuanzhong Xu, Yujing Zhang, Gus-
+Rohan Anil, Sebastian Borgeaud, Yonghui Wu, Jean-           tavo Hernandez Abrego, Junwhan Ahn, Jacob
+   Baptiste Alayrac, Jiahui Yu, Radu Soricut, Johan         Austin, Paul Barham, Jan Botha, James Brad-
+   Schalkwyk, Andrew M. Dai, Anja Hauth, Katie Mil-         bury, Siddhartha Brahma, Kevin Brooks, Michele
+   lican, David Silver, Slav Petrov, Melvin Johnson,        Catasta, Yong Cheng, Colin Cherry, Christopher A.
+   Ioannis Antonoglou, Julian Schrittwieser, Amelia         Choquette-Choo, Aakanksha Chowdhery, Clément
+   Glaese, Jilin Chen, Emily Pitler, Timothy P. Lilli-      Crepy, Shachi Dave, Mostafa Dehghani, Sunipa Dev,
+   crap, Angeliki Lazaridou, Orhan Firat, James Molloy,     Jacob Devlin, Mark Díaz, Nan Du, Ethan Dyer, Vlad
+   Michael Isard, Paul Ronald Barham, Tom Henni-            Feinberg, Fangxiaoyu Feng, Vlad Fienber, Markus
+   gan, Benjamin Lee, Fabio Viola, Malcolm Reynolds,        Freitag, Xavier Garcia, Sebastian Gehrmann, Lu-
+   Yuanzhong Xu, Ryan Doherty, Eli Collins, Clemens         cas Gonzalez, Guy Gur-Ari, Steven Hand, Hadi
+   Meyer, Eliza Rutherford, Erica Moreira, Kareem           Hashemi, Le Hou, Joshua Howland, Andrea Hu, Jef-
+   Ayoub, Megha Goel, George Tucker, Enrique Pi-            frey Hui, Jeremy Hurwitz, Michael Isard, Abe Itty-
+   queras, Maxim Krikun, Iain Barr, Nikolay Savinov,        cheriah, Matthew Jagielski, Wenhao Jia, Kathleen
+   Ivo Danihelka, Becca Roelofs, Anaïs White, Anders        Kenealy, Maxim Krikun, Sneha Kudugunta, Chang
+   Andreassen, Tamara von Glehn, Lakshman Yagati,           Lan, Katherine Lee, Benjamin Lee, Eric Li, Music
+   Mehran Kazemi, Lucas Gonzalez, Misha Khalman,            Li, Wei Li, YaGuang Li, Jian Li, Hyeontaek Lim,
+   Jakub Sygnowski, and et al. 2023. Gemini: A fam-         Hanzhao Lin, Zhongtao Liu, Frederick Liu, Mar-
+   ily of highly capable multimodal models. CoRR,           cello Maggioni, Aroma Mahendru, Joshua Maynez,
+   abs/2312.11805.                                          Vedant Misra, Maysam Moussalem, Zachary Nado,
+                                                            John Nham, Eric Ni, Andrew Nystrom, Alicia Par-
+Srikar Appalaraju, Bhavan Jasani, Bhargava Urala Kota,      rish, Marie Pellat, Martin Polacek, Alex Polozov,
+   Yusheng Xie, and R. Manmatha. 2021. Docformer:           Reiner Pope, Siyuan Qiao, Emily Reif, Bryan Richter,
+   End-to-end transformer for document understand-          Parker Riley, Alex Castro Ros, Aurko Roy, Brennan
+   ing. In Proceedings of the IEEE/CVF International        Saeta, Rajkumar Samuel, Renee Shelby, Ambrose
+   Conference on Computer Vision (ICCV), pages 993­         Slone, Daniel Smilkov, David R. So, Daniel Sohn,
+   1003.                                                    Simon Tokumine, Dasha Valter, Vijay Vasudevan, Ki-
+                                                            ran Vodrahalli, Xuezhi Wang, Pidong Wang, Zirui
+Srikar Appalaraju, Peng Tang, Qi Dong, Nishant              Wang, Tao Wang, John Wieting, Yuhuai Wu, Kelvin
+   Sankaran, Yichu Zhou, and R. Manmatha. 2023.             Xu, Yunhan Xu, Linting Xue, Pengcheng Yin, Jiahui
+   Docformerv2: Local features for document under-          Yu, Qiao Zhang, Steven Zheng, Ce Zheng, Weikang
+   standing.                                                Zhou, Denny Zhou, Slav Petrov, and Yonghui Wu.
+                                                            2023. Palm 2 technical report.
+Dhananjay Ashok and Zachary C. Lipton. 2023.
+   Promptner: Prompting for named entity recognition.    Jordan Hoffmann, Sebastian Borgeaud, Arthur Mensch,
+                                                            Elena Buchatskaya, Trevor Cai, Eliza Rutherford,
+Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie            Diego de Las Casas, Lisa Anne Hendricks, Johannes
+   Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind         Welbl, Aidan Clark, Tom Hennigan, Eric Noland,
+   Neelakantan, Pranav Shyam, Girish Sastry, Amanda         Katie Millican, George van den Driessche, Bogdan
+   Askell, Sandhini Agarwal, Ariel Herbert-Voss,            Damoc, Aurelia Guy, Simon Osindero, Karen Si-
+   Gretchen Krueger, Tom Henighan, Rewon Child,             monyan, Erich Elsen, Jack W. Rae, Oriol Vinyals,
+   Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu,            and Laurent Sifre. 2022. Training compute-optimal
+   Clemens Winter, Christopher Hesse, Mark Chen, Eric       large language models.
+   Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess,
+   Jack Clark, Christopher Berner, Sam McCandlish,       Ke Hong, Guohao Dai, Jiaming Xu, Qiuli Mao, Xi-
+   Alec Radford, Ilya Sutskever, and Dario Amodei.          uhong Li, Jun Liu, Kangdi Chen, Hanyu Dong, and
+   2020. Language models are few-shot learners.             Yu Wang. 2023. Flashdecoding++: Faster large
+                                                            language model inference on gpus. arXiv preprint
+Francesco De Toni, Christopher Akiki, Javier                arXiv:2311.01282.
+   De La Rosa, Clémentine Fourrier, Enrique Manjava-
+   cas, Stefan Schweter, and Daniel Van Strien. 2022.    Teakgyu Hong, Donghyun Kim, Mingi Ji, Won-
+   Entities, dates, and languages: Zero-shot on histor-     seok Hwang, Daehyun Nam, and Sungrae Park.
+   ical texts with t0. In Proceedings of BigScience         2021. BROS: A layout-aware pre-trained lan-
+   Episode #5 ­ Workshop on Challenges & Perspec-           guage model for understanding documents. CoRR,
+   tives in Creating Large Language Models, pages 75­       abs/2108.04539.
+   83, virtual+Dublin. Association for Computational
+   Linguistics.                                          Yan Hu, Qingyu Chen, Jingcheng Du, Xueqing Peng,
+                                                            Vipina Kuttichi Keloth, Xu Zuo, Yujia Zhou, Zehan
+   Li, Xiaoqian Jiang, Zhiyong Lu, Kirk Roberts, and        FormNetV2: Multimodal graph contrastive learn-
+   Hua Xu. 2024. Improving large language models for        ing for form document information extraction. In
+   clinical named entity recognition via prompt engi-       Proceedings of the 61st Annual Meeting of the As-
+   neering.                                                 sociation for Computational Linguistics (Volume 1:
+                                                            Long Papers), pages 9011­9026, Toronto, Canada.
+Lei Huang, Weijiang Yu, Weitao Ma, Weihong Zhong,           Association for Computational Linguistics.
+   Zhangyin Feng, Haotian Wang, Qianglong Chen,
+   Weihua Peng, Xiaocheng Feng, Bing Qin, and Ting       Kenton Lee, Mandar Joshi, Iulia Turc, Hexiang Hu,
+   Liu. 2023. A survey on hallucination in large lan-       Fangyu Liu, Julian Eisenschlos, Urvashi Khandel-
+   guage models: Principles, taxonomy, challenges, and      wal, Peter Shaw, Ming-Wei Chang, and Kristina
+   open questions.                                          Toutanova. 2023b. Pix2struct: Screenshot parsing as
+                                                            pretraining for visual language understanding.
+Yupan Huang, Tengchao Lv, Lei Cui, Yutong Lu, and
+   Furu Wei. 2022. Layoutlmv3: Pre-training for doc-     Yaniv Leviathan, Matan Kalman, and Yossi Matias.
+   ument ai with unified text and image masking. In         2023. Fast inference from transformers via spec-
+   Proceedings of the 30th ACM International Confer-        ulative decoding. In International Conference on
+   ence on Multimedia.                                      Machine Learning, pages 19274­19286. PMLR.
+
+Norm Jouppi, George Kurian, Sheng Li, Peter Ma,          Haotian Liu, Chunyuan Li, Yuheng Li, and Yong Jae
+   Rahul Nagarajan, Lifeng Nai, Nishant Patil, Suvinay      Lee. 2023. Improved baselines with visual instruc-
+   Subramanian, Andy Swing, Brian Towles, et al. 2023.      tion tuning.
+   Tpu v4: An optically reconfigurable supercomputer
+   for machine learning with hardware support for em-    Bodhisattwa Prasad Majumder, Navneet Potti, Sandeep
+   beddings. In Proceedings of the 50th Annual Interna-     Tata, James Bradley Wendt, Qi Zhao, and Marc Na-
+   tional Symposium on Computer Architecture, pages         jork. 2020. Representation learning for information
+   1­14.                                                    extraction from form-like documents. In ACL.
+
+Imed Keraghel, Stanislas Morbieu, and Mohamed Nadif.     Jianmo Ni, Gustavo Hernández Ábrego, Noah Con-
+   2024. A survey on recent advances in named entity        stant, Ji Ma, Keith B Hall, Daniel Cer, and Yinfei
+   recognition. arXiv preprint arXiv:2401.10825.            Yang. 2021. Sentence-t5: Scalable sentence encoders
+                                                            from pre-trained text-to-text models. arXiv preprint
+Geewook Kim, Teakgyu Hong, Moonbin Yim,                     arXiv:2108.08877.
+   JeongYeon Nam, Jinyoung Park, Jinyeong Yim, Won-
+   seok Hwang, Sangdoo Yun, Dongyoon Han, and            OpenAI. 2023a. Gpt-4 technical report.
+   Seunghyun Park. 2022. Ocr-free document under-
+   standing transformer. In European Conference on       OpenAI. 2023b. Json mode. https://platform.
+   Computer Vision (ECCV).                                  openai.com/docs/guides/text-generation/
+                                                            json-mode. Accessed: 2024-02-15.
+Md Tahmid Rahman Laskar, M Saiful Bari, Mizanur
+   Rahman, Md Amran Hossen Bhuiyan, Shafiq Joty,         Rasmus Berg Palm, Ole Winther, and Florian Laws.
+   and Jimmy Xiangji Huang. 2023. A systematic study        2017. Cloudscan - a configuration-free invoice anal-
+   and comprehensive evaluation of chatgpt on bench-        ysis system using recurrent neural networks. In Pro-
+   mark datasets.                                           ceedings of 2017 14th IAPR International Confer-
+                                                            ence on Document Analysis and Recognition, pages
+Chen-Yu Lee, Chun-Liang Li, Timothy Dozat, Vincent          406­413, United States. IEEE.
+   Perot, Guolong Su, Nan Hua, Joshua Ainslie, Ren-
+   shen Wang, Yasuhisa Fujii, and Tomas Pfister. 2022.   Seunghyun Park, Seung Shin, Bado Lee, Junyeop Lee,
+   FormNet: Structural encoding beyond sequential           Jaeheung Surh, Minjoon Seo, and Hwalsuk Lee. 2019.
+   modeling in form document information extraction.        Cord: A consolidated receipt dataset for post-ocr
+   In Proceedings of the 60th Annual Meeting of the         parsing. In Workshop on Document Intelligence at
+   Association for Computational Linguistics (Volume        NeurIPS 2019.
+   1: Long Papers), pages 3735­3754, Dublin, Ireland.
+   Association for Computational Linguistics.            Rafal Powalski, Lukasz Borchmann, Dawid Jurkiewicz,
+                                                            Tomasz Dwojak, Michal Pietruszka, and Gabriela
+Chen-Yu Lee, Chun-Liang Li, Chu Wang, Renshen               Palka. 2021. Going full-tilt boogie on document un-
+   Wang, Yasuhisa Fujii, Siyang Qin, Ashok Popat, and       derstanding with text-image-layout transformer. In
+   Tomas Pfister. 2021. Rope: reading order equivari-       Document Analysis and Recognition ­ ICDAR 2021,
+   ant positional encoding for graph-based document         pages 732­747, Cham. Springer International Pub-
+   information extraction. In ACL.                          lishing.
+
+Chen-Yu Lee, Chun-Liang Li, Hao Zhang, Timothy           Colin Raffel, Noam Shazeer, Adam Roberts, Kather-
+   Dozat, Vincent Perot, Guolong Su, Xiang Zhang,           ine Lee, Sharan Narang, Michael Matena, Yanqi
+   Kihyuk Sohn, Nikolay Glushnev, Renshen Wang,             Zhou, Wei Li, and Peter J. Liu. 2020. Exploring the
+   Joshua Ainslie, Shangbang Long, Siyang Qin, Ya-          limits of transfer learning with a unified text-to-text
+   suhisa Fujii, Nan Hua, and Tomas Pfister. 2023a.         transformer. Journal of Machine Learning Research,
+                                                            21(140):1­67.
+Lance Ramshaw and Mitch Marcus. 1995. Text chunk-        Yiheng Xu, Minghao Li, Lei Cui, Shaohan Huang, Furu
+   ing using transformation-based learning. In Third        Wei, and Ming Zhou. 2020. Layoutlm: Pre-training
+   Workshop on Very Large Corpora.                          of text and layout for document image understanding.
+                                                            In Proceedings of the 26th ACM SIGKDD Interna-
+Rahul Sengottuvelu. 2023. Jsonformer. https://              tional Conference on Knowledge Discovery & Data
+   github.com/1rgs/jsonformer. Accessed: 2024-              Mining, pages 1192­1200.
+   02-15.
+                                                         Zhenrong Zhang, Jiefeng Ma, Jun Du, Licheng Wang,
+Noam Shazeer. 2019. Fast transformer decoding:              and Jianshu Zhang. 2022. Multimodal pre-training
+   One write-head is all you need. arXiv preprint           based on graph attention network for document un-
+   arXiv:1911.02150.                                        derstanding.
+
+Ilya Sutskever, Oriol Vinyals, and Quoc V. Le. 2014.
+   Sequence to sequence learning with neural networks.
+
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob
+   Uszkoreit, Llion Jones, Aidan N Gomez, L ukasz
+   Kaiser, and Illia Polosukhin. 2017. Attention is all
+   you need. In Advances in Neural Information Pro-
+   cessing Systems, volume 30. Curran Associates, Inc.
+
+Dongsheng Wang, Natraj Raman, Mathieu Sibue,
+   Zhiqiang Ma, Petr Babkin, Simerjot Kaur, Yulong
+   Pei, Armineh Nourbakhsh, and Xiaomo Liu. 2023a.
+   Docllm: A layout-aware generative language model
+   for multimodal document understanding.
+
+Shuhe Wang, Xiaofei Sun, Xiaoya Li, Rongbin Ouyang,
+   Fei Wu, Tianwei Zhang, Jiwei Li, and Guoyin Wang.
+   2023b. Gpt-ner: Named entity recognition via large
+   language models.
+
+Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le,
+   Ed Chi, Sharan Narang, Aakanksha Chowdhery, and
+   Denny Zhou. 2022. Self-consistency improves chain
+   of thought reasoning in language models. arXiv
+   preprint arXiv:2203.11171.
+
+Zifeng Wang, Zizhao Zhang, Jacob Devlin, Chen-Yu
+   Lee, Guolong Su, Hao Zhang, Jennifer Dy, Vincent
+   Perot, and Tomas Pfister. 2023c. QueryForm: A sim-
+   ple zero-shot form entity query framework. In Find-
+   ings of the Association for Computational Linguis-
+   tics: ACL 2023, pages 4146­4159, Toronto, Canada.
+   Association for Computational Linguistics.
+
+Zilong Wang, Yichao Zhou, Wei Wei, Chen-Yu Lee,
+   and Sandeep Tata. 2023d. Vrdu: A benchmark for
+   visually-rich document understanding. In Proceed-
+   ings of the 29th ACM SIGKDD Conference on Knowl-
+   edge Discovery and Data Mining, KDD '23, page
+   5184­5193, New York, NY, USA. Association for
+   Computing Machinery.
+
+Jason Wei, Maarten Bosma, Vincent Y. Zhao, Kelvin
+   Guu, Adams Wei Yu, Brian Lester, Nan Du, An-
+   drew M. Dai, and Quoc V. Le. 2022. Finetuned
+   language models are zero-shot learners.
+
+Yang Xu, Yiheng Xu, Tengchao Lv, Lei Cui, Furu
+   Wei, Guoxin Wang, Yijuan Lu, Dinei Florencio, Cha
+   Zhang, Wanxiang Che, Min Zhang, and Lidong Zhou.
+   2021. Layoutlmv2: Multi-modal pre-training for
+   visually-rich document understanding. In Proceed-
+   ings of the 59th Annual Meeting of the Association
+   for Computational Linguistics (ACL) 2021.
+A Appendix
+
+A.1 Chunking algorithm
+
+Algorithm 1 Document Chunking
+
+1: function CHUNK(D, L, F )                 D is a document containing multiple pages. L is token limit.
+
+2:                                     F is a function that outputs prompt token length given some segments (e.g. lines).
+
+3: C =                                      C is to record all produced chunks.
+
+4: for i = 1 to |D.pages| do
+
+5:   S = D.pages[i].segments
+
+6:   while S =  do
+
+7:       for j = |S| to 1 do                Start pruning from the end of the page.
+
+8:                if F (S[1 : j])  L then
+
+9:                C = C  {S[1 : j]}
+
+10:               S = S[j + 1 : |S|]        Continue to work on the rest of the segments.
+
+11:               Exit for loop
+
+12:               end if
+
+13:      end for
+
+14:  end while
+
+15: end for
+
+16: return C
+
+17: end function
+
+A.2 Entity value parsing algorithm
+
+Algorithm 2 Entity Value Parsing
+
+1: function PARSEENTITYVALUE(D, E)          D is a document chunk.
+
+2:                                          E is raw extraction results for one entity type parsed from one LLM sample.
+
+3: G =                                      G is to record all parsed entity values.
+
+4: R = Regex("(\d\d\|\d\d)")                R is a regex that captures the segment identifiers.
+
+5: M = {"s.x|s.y"  s|s  D.segments}         M holds a mapping between segment id and segment.
+
+6: for i = 1 to |E| do
+
+7:   W =                                    W is to hold all words for this entity.
+
+8:   P = R.split(E[i])                      P is expected to be interleaved text values and segment ids.
+
+9:   for j = 1 to |P |/2 do
+
+10:      if P [j  2] / M then
+
+11:               Go to next i              Segment ID is hallucinated. Grounding failure.
+
+12:      end if
+
+13:      S = M [P [j  2]]                   Retrieve the stored segment from M with parsed segment ID.
+
+14:      T = P [j  2 - 1]                   T is to hold the predicted text.
+
+15:      if T not substring of S then
+
+16:               Go to next i              Grounding failure, skip the current entity.
+
+17:      end if
+
+18:      W = W  (S  T )
+
+19:  end for
+
+20:  G.value = wW w.text_value              G is to hold the entity to return.
+
+21:  G.bounding_box = {min(b.x), min(b.y), max(b.x), max(b.y)}wW,b=w.bounding_box
+
+22:  G = G  {G}
+
+23: end for
+
+24: return G
+
+25: end function
+A.3 Decoding algorithm
+
+Algorithm 3 Responses Decoding
+
+1: function DECODEFORTYPE(J , T , D)                              J is one or more JSON objects.
+
+2:                                                                            T is an entity type.
+
+3:                                                                            D is a document chunk.
+
+4: E =                                       E is to record all parsed and grounded entities.
+
+5: for j = 1 to |J| do
+
+6:   J = J[j][T.type]                        J is to hold entities for T's type before grounding.
+
+7:   if T.subtypes =  then                                                    T is leaf entity type.
+
+8:       E = E  P arseEntityV alue(D, J)
+
+9:   else                                                         T is hierarchical entity type.
+                                                                       E is hierarchical entity.
+10:        E.subtypes = T T.subtypes DecodeF orT ype(J , T , D)
+
+11:        E = E  {E}
+
+12:  end if
+
+13: end for
+
+14: return E
+
+15: end function
+
+16:
+
+17: function MAJORITYVOTING(T , E)                                            T is an entity type.
+
+18:                                          E is a 2D vector of entities of type T from all LLM responses.
+
+19: V = [0, 0, ..., 0]  R|E|                                                  V is to record all votes.
+
+20: L = {T }
+
+21: while L =  do
+
+22:  T  = L[0]
+
+23:  E = 
+
+24:  for j = 1 to |E| do
+
+25:        E = E  {e|e  E[j], e.type = T }                        E[j] holds entities with type T  from E[j].
+
+26:  end for
+
+27:  for i = 1 to |E| - 1 do
+
+28:        for j = i + 1 to |E| do
+
+29:               if E[i] = E[j] then
+
+30:               V [i] = V [i] + 1
+
+31:               V [j] = V [j] + 1
+
+32:               end if
+
+33:        end for
+
+34:  end for
+
+35:  L = L[1 : |L|]                          Remove T  and inject its sub-types for recursion.
+
+36:  L = L  T .subtypes
+
+37: end while
+
+38: return E[argmax(V )]                     Return the entity values with the highest votes.
+
+39: end function
+
+40:
+
+41: function DECODEALLSAMPLES(S, T , D)                           S is all LLM response samples on D.
+
+42:                                                                           T is a list of entity types.
+
+43:                                                                           D is a document chunk.
+44: return T T M ajorityV oting( SS DecodeF orT ype(P arseJ son(S), T , D))
+45: end function
+A.4 Token Length Statistics                           A.5 Schemas
+
+Table 6 details the token length (50th and 99th per-  In this section, we present the schemas used for
+centiles) of the prompt and completion targets for    the experiments of this paper. The schema for
+LMDXPaLM 2-S for the train split of datasets used in  VRDU Ad-Buy Form, VRDU Registration Form,
+our experiments. We select the line level segment,    and CORD can be found in Figure 4, Figure 5 and
+2 coordinate scheme, no JSON indentation so that      Figure 6 respectively.
+all datasets fit within our 6144 prompt token length
+and 2048 output token length.
+
+Table 6: Prompt and target token length of different coordinate-as-tokens schemes on VRDU and CORD benchmarks,
+using the vocabulary of PaLM 2-S. We vary the number of coordinates and their quantization buckets in the
+localization tags, the segment level (e.g. line versus word), chunking style (e.g. page versus max input tokens) and
+JSON indentation in the schema and completion targets.
+
+# Coord.  # Quant.  Segment    VRDU Ad-Buy Form                   Input       Target
+                             Chunking JSON Indent
+    2        100      Line                                  50th  99th        50th  99th
+    2        100      Word
+    4        100      Line       Page                 None  2377  3920        602 1916
+    2       1000      Line       Page                 None  3865  13978       718 2328
+    2        100      Line       Page                 None  3329  5284        777 2473
+    2        100      Line       Page                 None  2687  4322        660 2095
+                                 Page                       2417  3328        689 2234
+                             6144 tokens                4   2377  3920        602 1916
+                                                      None
+
+# Coord.  # Quant.  Segment  VRDU Registration Form               Input       Target
+                             Chunking JSON Indent
+    2        100      Line                                  50th  99th        50th  99th
+    2        100      Word
+    4        100      Line       Page                 None  963   1578        79 147
+    2       1000      Line       Page                 None  3083  5196        101 349
+    2        100      Line       Page                 None  1232  2017        91 177
+    2        100      Line       Page                 None  1052  1723        83 155
+                                 Page                       977   1592        92 160
+                             6144 tokens                4   963   1578        79 147
+                                                      None
+
+# Coord. # Quant. Segment               CORD                      Input       Target
+                             Chunking JSON Indent
+                                                            50th  99th        50th  99th
+
+2         100       Line     Page                     None  342          869  355 1495
+                                                                              375 1638
+2         100       Word     Page                     None  396 1067          422 1801
+                                                                              376 1957
+4         100       Line     Page                     None  408 1139          474 1997
+                                                                              355 1495
+2         1000      Line     Page                     None  364          959
+
+2         100       Line     Page                     4     411          938
+
+2         100       Line     6144 tokens              None  342          869
+{
+   "advertiser": "",
+   "agency": "",
+   "contract_num": "",
+   "flight_from": "",
+   "flight_to": "",
+   "gross_amount": "",
+   "line_item": [
+      {
+         "channel": "",
+         "program_desc": "",
+         "program_end_date": "",
+         "program_start_date": "",
+         "sub_amount": ""
+      }
+   ],
+   "product": "",
+   "property": "",
+   "tv_address": ""
+
+}
+
+                                         Figure 4: VRDU Ad-Buy Form Schema.
+
+{
+   "file_date": "",
+   "foreign_principle_name": "",
+   "registrant_name": "",
+   "registration_num": "",
+   "signer_name": "",
+   "signer_title": ""
+
+}
+
+                                       Figure 5: VRDU Registration Form Schema.
+  {
+     "line_item": [ # menu
+        {
+           "discount_price": "", # menu.discountprice
+           "identifier": "", # menu.num
+           "name": "", # menu.nm
+           "other": "", # menu.etc
+           "quantity": "", # menu.qty
+           "sub_name": [], # menu.sub_nm
+           "sub_price": [], # menu.sub_price
+           "sub_quantity": [], # menu.sub_qty
+           "subtotal_price": "", # menu.itemsubtotal
+           "total_price": "", # menu.price
+           "unit_price": "" # menu.unitprice
+        }
+     ],
+     "subtotal": { # subtotal
+        "discount_price": "", # subtotal.discount_price
+        "other": [], # subtotal.etc
+        "service_price": "", # subtotal.service_price
+        "subtotal_price": [], # subtotal.subtotal_price
+        "tax_price": [] # subtotal.tax_price
+     },
+     "total": { # total
+        "cash_price": [], # total.cashprice
+        "change_price": "", # total.changeprice
+        "credit_card_price": "", # total.creditcardprice
+        "emoney_price": "", # total.emoneyprice
+        "line_item_quantity_count": "", # total.menuqty_cnt
+        "line_item_type_count": "", # total.menutype_cnt
+        "other": "", # total.total_etc
+        "total_price": [] # total.total_price
+     }
+
+  }
+
+Figure 6: CORD Schema. Note that the original entity types (shown as comments) have been renamed to more
+semantically meaningful names.
+A.6 Zero-shot Baselines Details                                 entities menu, subtotal and total. The best heuris-
+                                                                tics we could find are as follows:
+We compare LMDX to other Large Model base-
+lines on all benchmarks in the zero-shot context.                  · For the subtotal and total hierarchical entity
+Those baselines are detailed below.                                   types, since they appear only once per docu-
+Text-based Baselines. We evaluate the zero-shot                       ment, we group all their extracted sub-entities
+extraction ability of multiple strong Large Lan-                      under a single subtotal and total entity, respec-
+guage Models: GPT-3.53, Gemini Pro (Anil et al.,                      tively.
+2023) and PaLM 2-S (Google et al., 2023). To
+do so, we prompt them with the raw benchmark's                     · For menu hierarchical entity type, we observe
+OCR text (no coordinate tokens or segment iden-                       that those entities usually occur multiple times
+tifier like for LMDX), and extraction instructions                    on a document, and each menu has at most one
+alongside the schema in JSON format. We then                          nm, num, unitprice, cnt, discountprice, price,
+parse the completions as JSON to get the predicted                    itemsubtotal, etc sub-entities and potentially
+entities directly. Note that those predicted entities                 multiple sub_nm, sub_price and sub_cnt sub-
+are not localized within the document. A sample                       entities. We also notice that the sub-entities
+prompt can be observed in Figure 7. In particu-                       aligned horizontally overwhelmingly belong
+lar for GPT-3.5, we use the gpt-3.5-turbo-1106                        to the same menu entity, and a menu entity
+through OpenAI's API.                                                 can sometimes span over two or more con-
+Page Image-based Baselines. We evaluate the                           secutive horizontal lines. To leverage those
+zero-shot extraction ability of multiple strong                       observations, we perform a two-step grouping
+Vision-Language Models: LLaVA-v1.5-13B (Liu                           process for menu entities. First, we merge
+et al., 2023), Gemini Pro (Anil et al., 2023), and                    the extracted leaf sub-entities into horizon-
+GPT-4V (OpenAI, 2023a). The prompt includes                           tal groups, where a threshold of 0.5 on the
+task description, instructions and target schema                      intersection-over-union of the Y-axis was used
+represented in JSON format as text input and the                      for the determination of horizontal alignment.
+document page as image input. We provide exam-                        Second, we further merge the consecutive hor-
+ples of valid JSON values in the task instructions.                   izontal groups into menu entities, if and only
+Note that those predicted entities are not localized                  if the horizontal groups do not have type du-
+within the document. A sample prompt can be ob-                       plication in any of the nm, num, unitprice, cnt,
+served in Figure 8. In particular for GPT-4V, we                      discountprice, price, itemsubtotal, and etc sub-
+use the gpt-4-1106-preview through OpenAI's                           entities (namely, those sub-entities only show
+API. For Gemini Pro, we use gemini-pro-vision                         up in at most one of the consecutive horizontal
+through the VertexAI API4.                                            groups to be merged). We allow duplication
+                                                                      of sub_nm, sub_price and sub_cnt sub-entity
+A.7 CORD Baselines Details                                            types. After those two steps, we obtain the
+                                                                      final menu entities.
+LayoutLMv3 Baseline. We follow the released
+implementation5 for the LayoutLMv3LARGE                         Donut Baseline. We follow Donut released im-
+model and the training protocol described in                    plementation6 for the Donut benchmarking results
+(Huang et al., 2022) as closely as possible. In par-            on CORD. We use the default training configura-
+ticular, we train the model for 80 epochs for each              tion for all experiments on CORD (namely, 10, 50,
+experiment on CORD (namely, 10, 50, 100 and                     100 and 200-document training sets), with the fol-
+200-document training sets), on the IOB tags of the             lowing difference: we reduce batch size from 8 to
+leaf entities. One difference in our training is that,          4 due to computational resource constraints, and
+due to computational resource constraints, we use               increase the number of train epochs from 30 to 60.
+batch_size = 8 and learning_rate = 2 · 10-5.                    For each experiment, checkpoint with the lowest
+                                                                loss on the dev set is selected and we report perfor-
+   As the LayoutLMv3 model can only extract leaf                mance on test set. Micro-F1 scores produced by
+entities, we design and heavily optimize a heuristic            Donut evaluation code are reported (similar to all
+algorithm to group the leaf entities into hierarchical          our other models).
+
+    3https://platform.openai.com/docs/models/gpt-3-5-turbo          6https://github.com/clovaai/donut
+    4https://cloud.google.com/vertex-ai/docs/generative-
+ai/start/quickstarts/quickstart-multimodal
+    5https://github.com/microsoft/unilm/tree/master/layoutlmv3
+   ${RAW_OCR_TEXT}
+
+   Given the document, extract the text value of the entities included in
+   the schema in json format.
+   - The extraction must respect the JSON schema.
+   - Only extract entities specified in the schema. Do not skip any entity types.
+   - The values must only include text found in the document.
+   - Use null or [] for missing entity types.
+   - Do not indent the json you produce.
+   - Examples of valid string value format: "$ 1234.50", "John Do", null.
+   - Examples of valid list value format: ["$ 1234.50", "John Do"], [].
+
+   Schema: {"file_date": "", "foreign_principle_name": "",
+   "registrant_name": "", "registration_num": "", "signer_name": "",
+   "signer_title": ""}
+   ```json
+
+Figure 7: Sample prompt for GPT-3.5+OCR, Gemini Pro+OCR and PaLM 2-S+OCR text-based baselines for VRDU
+Registration Form.
+
+   ${DOCUMENT_PAGE_IMAGE}
+
+   Given the document, extract the text value of the entities included in
+   the schema in json format.
+   - The extraction must respect the JSON schema.
+   - Only extract entities specified in the schema. Do not skip any entity types.
+   - The values must only include text found in the document.
+   - Use null or [] for missing entity types.
+   - Do not indent the json you produce.
+   - Examples of valid string value format: "$ 1234.50", "John Do", null.
+   - Examples of valid list value format: ["$ 1234.50", "John Do"], [].
+
+   Schema: {"file_date": "", "foreign_principle_name": "",
+   "registrant_name": "", "registration_num": "", "signer_name": "",
+   "signer_title": ""}
+   ```json
+
+Figure 8: Sample prompt for GPT-4V+Image, LLaVA-v1.5-13B+Image, and Gemini Pro+Image image-based baselines
+for VRDU Registration Form.
+
+A.8 Sample Prompts and Completions                      A.9 Nearest Neighbors In-Context Learning
+
+In this section, we present example of LMDX             In our study, nearest neighbors leads to a signif-
+prompts and completions from the LLM on the             icant quality gain over randomly selecting exam-
+VRDU Ad-Buy dataset to better showcase the for-         plars. In this section, we explore why that is the
+mat used. Figure 9 shows the original document          case in the context of VRD information extraction.
+with the line bounding boxes from OCR, Figure 10        Figures 15, 16 and 17 show typical retrievals us-
+shows the corresponding prompt and completion           ing sentenceT5 (Ni et al., 2021) embeddings7 on
+on that document with coordinate segment identi-        the OCR text for similarity. Unsurprisingly, nearest
+fiers, Figure 11 shows the same prompt and comple-      neighbors works well as it retrieves examplars from
+tion, but with line index segment identifiers (used     the same template as the target document, i.e. from
+in ablation studies to showcase how the LLM can         the same merchant in the case of CORD documents
+interpret the layout) and Figure 12 shows how the       (store/restaurant receipts). As those examples share
+completion changes when skipping missing entity         the same layout, boilerplate text, and entities, it
+types entirely in the completion. Finally, Figure 13    makes it easier for the model to understand the cor-
+and Figure 14 show how the prompts/completions          rect extraction pattern, leading to significant gains
+changes if 4 line-level [xmin, ymin, xmax, ymax] coor-  in quality.
+dinates or 2-word level [xcenter, ycenter] coordinates
+are used.                                                   7https://www.kaggle.com/models/google/sentence-
+                                                        t5/frameworks/tensorFlow2/variations/st5-base
+Figure 9: Example document from VRDU Ad-Buy Form. The line bounding boxes detected by OCR are shown in
+red.
+   ============================================= Prompt =============================================
+
+   <Document>
+   Print Date 02/28/20 14:21:20 75|02
+   Page 1 of 1 91|02
+   ORDER 49|04
+   WSIL 77|07
+   Orders 04|09
+   Order/Rev: 17|09
+   14086 29|09
+   HARRISBURG 78|09
+   PADUCAH 78|10
+   CAPE GIRARDEAU 78|12
+   Alt Order #: 17|11
+   Product Desc: 18|13
+   Mike Carr for Jackson Co States Atty 38|13
+   Estimate: 16|15
+   WSIL-TV 73|15
+   Flight Dates: 17|17
+   03/03/20 - 03/03/20 33|17
+   Primary AE: 57|17
+   David Cisco 73|17
+   Original Date/ Rev: 19|19
+   02/28/20/02/28/20 33|19
+   ...
+   Start Date End Date Weekdays Spots/Week Rate Rating 31|66
+   Week: 03/02/20 03/08/20 -3-- 15|67
+   3 $200.00 0.00 47|67
+   Totals 79|69
+   3 87|69
+   $600.00 94|69
+   </Document>
+   <Task>
+   From the document, extract the text values and tags of the following
+   entities:
+   {"advertiser": "", "agency": "", "contract_num": "", "flight_from": "",
+   "flight_to": "", "gross_amount": "", "line_item": [{"channel": "",
+   "program_desc": "", "program_end_date": "", "program_start_date": "",
+   "sub_amount": ""}], "product": "", "property": "", "tv_address": ""}
+   </Task>
+   <Extraction>
+
+   =========================================== Completion ===========================================
+
+   {"advertiser": "Committee to Elect Mike Carr 37|36", "agency":
+   "Committee to Elect Mike Carr 37|24", "contract_num": "14086 29|09",
+   "flight_from": "03/03/20 33|17", "flight_to": "03/03/20 33|17",
+   "gross_amount": "$600.00 77|51", "line_item": [{"channel": "3 31|63",
+   "program_desc": "Tuesday Prime 31|63\nYour Voice Your Vote 29|64",
+   "program_end_date": "03/03/20 31|63", "program_start_date":
+   "03/03/20 31|63", "sub_amount": "$600.00 94|63"}], "product":
+   "Mike Carr for Jackson Co States Atty 38|13", "property": "WSIL 77|07",
+   "tv_address": null}
+   </Extraction>
+
+Figure 10: VRDU Ad-Buy Form sample prompt and completion with 2 [xcenter, ycenter] coordinates for segment
+identifier. The document is truncated for easier visualization.
+   ============================================= Prompt =============================================
+
+   <Document>
+   Print Date 02/28/20 14:21:20 <0>
+   Page 1 of 1 <1>
+   ORDER <2>
+   WSIL <3>
+   Orders <4>
+   Order/Rev: <5>
+   14086 <6>
+   HARRISBURG <7>
+   PADUCAH <8>
+   CAPE GIRARDEAU <9>
+   Alt Order #: <10>
+   Product Desc: <11>
+   Mike Carr for Jackson Co States Atty <12>
+   Estimate: <13>
+   WSIL-TV <14>
+   Flight Dates: <15>
+   03/03/20 - 03/03/20 <16>
+   Primary AE: <17>
+   David Cisco <18>
+   Original Date/ Rev: <19>
+   02/28/20/02/28/20 <20>
+   ...
+   Start Date End Date Weekdays Spots/Week Rate Rating <105>
+   Week: 03/02/20 03/08/20 -3-- <106>
+   3 $200.00 0.00 <107>
+   Totals <108>
+   3 <109>
+   $600.00 <110>
+   </Document>
+   <Task>
+   From the document, extract the text values and tags of the following
+   entities:
+   {"advertiser": "", "agency": "", "contract_num": "", "flight_from": "",
+   "flight_to": "", "gross_amount": "", "line_item": [{"channel": "",
+   "program_desc": "", "program_end_date": "", "program_start_date": "",
+   "sub_amount": ""}], "product": "", "property": "", "tv_address": ""}
+   </Task>
+   <Extraction>
+
+   =========================================== Completion ===========================================
+
+   {"advertiser": "Committee to Elect Mike Carr <44>", "agency":
+   "Committee to Elect Mike Carr <29>", "contract_num": "14086 <6>",
+   "flight_from": "03/03/20 <16>", "flight_to": "03/03/20 <16>",
+   "gross_amount": "$600.00 <84>", "line_item": [{"channel": "3 <102>",
+   "program_desc": "Tuesday Prime Other CM <102>", "program_end_date":
+   "03/03/20 <102>", "program_start_date": "03/03/20 <102>",
+   "sub_amount": "$600.00 <100>"}], "product": "Mike Carr for Jackson Co
+   States Atty <12>", "property": "WSIL-TV <14>", "tv_address": null}
+   </Extraction>
+
+Figure 11: VRDU Ad-Buy Form sample prompt and completion with line index for segment identifier. Instead
+of using coordinate tokens, the line index is given as <line_index> at the end of each line, which does not
+communicate layout information but still uniquely identify the segment. The document is truncated for easier
+visualization.
+   ============================================= Prompt =============================================
+
+   <Document>
+   Print Date 02/28/20 14:21:20 75|02
+   Page 1 of 1 91|02
+   ORDER 49|04
+   WSIL 77|07
+   Orders 04|09
+   Order/Rev: 17|09
+   14086 29|09
+   HARRISBURG 78|09
+   PADUCAH 78|10
+   CAPE GIRARDEAU 78|12
+   Alt Order #: 17|11
+   Product Desc: 18|13
+   Mike Carr for Jackson Co States Atty 38|13
+   Estimate: 16|15
+   WSIL-TV 73|15
+   Flight Dates: 17|17
+   03/03/20 - 03/03/20 33|17
+   Primary AE: 57|17
+   David Cisco 73|17
+   Original Date/ Rev: 19|19
+   02/28/20/02/28/20 33|19
+   ...
+   Start Date End Date Weekdays Spots/Week Rate Rating 31|66
+   Week: 03/02/20 03/08/20 -3-- 15|67
+   3 $200.00 0.00 47|67
+   Totals 79|69
+   3 87|69
+   $600.00 94|69
+   </Document>
+   <Task>
+   From the document, extract the text values and tags of the following
+   entities:
+   {"advertiser": "", "agency": "", "contract_num": "", "flight_from": "",
+   "flight_to": "", "gross_amount": "", "line_item": [{"channel": "",
+   "program_desc": "", "program_end_date": "", "program_start_date": "",
+   "sub_amount": ""}], "product": "", "property": "", "tv_address": ""}
+   </Task>
+   <Extraction>
+
+   =========================================== Completion ===========================================
+
+   {"advertiser": "Committee to Elect Mike Carr 37|36", "agency":
+   "Committee to Elect Mike Carr 37|24", "contract_num": "14086 29|09",
+   "flight_from": "03/03/20 33|17", "flight_to": "03/03/20 33|17",
+   "gross_amount": "$600.00 77|51", "line_item": [{"channel": "3 31|63",
+   "program_desc": "Tuesday Prime 31|63\nYour Voice Your Vote 29|64",
+   "program_end_date": "03/03/20 31|63", "program_start_date":
+   "03/03/20 31|63", "sub_amount": "$600.00 94|63"}], "product":
+   "Mike Carr for Jackson Co States Atty 38|13", "property": "WSIL 77|07"}
+   </Extraction>
+
+Figure 12: VRDU Ad-Buy Form sample prompt and completion with skipping the missing entity types in the
+completion (tv_address in this case). Instead of explicitly outputting the missing entity type "tv_address": null,
+the entity type is skipped entirely. The document is truncated for easier visualization.
+   ============================================= Prompt =============================================
+
+   <Document>
+   Print Date 02/28/20 14:21:20 66|02|83|03
+   Page 1 of 1 87|02|95|03
+   ORDER 45|03|54|05
+   WSIL 69|06|85|08
+   Orders 02|09|06|10
+   Order/Rev: 14|09|21|10
+   14086 28|09|31|10
+   HARRISBURG 73|08|83|10
+   PADUCAH 74|10|82|11
+   CAPE GIRARDEAU 71|11|85|12
+   Alt Order #: 14|11|20|12
+   Product Desc: 14|12|22|13
+   Mike Carr for Jackson Co States Atty 28|12|49|14
+   Estimate: 14|14|19|15
+   WSIL-TV 70|14|75|15
+   Flight Dates: 14|16|21|17
+   03/03/20 - 03/03/20 27|16|39|17
+   Primary AE: 53|16|61|17
+   David Cisco 70|16|77|17
+   Original Date/ Rev: 14|18|25|19
+   02/28/20/02/28/20 27|18|39|19
+   ...
+   Start Date End Date Weekdays Spots/Week Rate Rating 08|65|54|66
+   Week: 03/02/20 03/08/20 -3-- 04|66|27|67
+   3 $200.00 0.00 40|66|54|67
+   Totals 77|68|80|69
+   3 87|68|87|69
+   $600.00 92|68|96|69
+   </Document>
+   <Task>
+   From the document, extract the text values and tags of the following
+   entities:
+   {"advertiser": "", "agency": "", "contract_num": "", "flight_from": "",
+   "flight_to": "", "gross_amount": "", "line_item": [{"channel": "",
+   "program_desc": "", "program_end_date": "", "program_start_date": "",
+   "sub_amount": ""}], "product": "", "property": "", "tv_address": ""}
+   </Task>
+   <Extraction>
+
+   =========================================== Completion ===========================================
+
+   {"advertiser": "Committee to Elect Mike Carr 27|35|46|36",
+   "agency": "Committee to Elect Mike Carr 28|24|46|25", "contract_num": "14086 28|09|31|10",
+   "flight_from": "03/03/20 - 03/03/20 27|16|39|17",
+   "flight_to": "03/03/20 - 03/03/20 27|16|39|17", "gross_amount": null,
+   "line_item": [{"channel": "N 1 3 0 ... Tuesday Prime Other CM 7:00 PM-10:00 PM-3----- 03|62|58|63",
+   "program_desc": "Your Voice Your Vote 23|64|36|64",
+   "program_end_date": "03/03/20 12|49|17|50", "program_start_date": "03/03/20 03|49|08|50",
+   "sub_amount": null}], "product": "WSIL-TV 70|14|75|15", "property": null, "tv_address": null}
+   </Extraction>
+
+Figure 13: VRDU Ad-Buy Form sample prompt and completion with 4 line-level [xmin, ymin, xmax, ymax] coordinates
+in the prompt and completion. The document and completion is truncated for easier visualization.
+   ============================================= Prompt =============================================
+
+   <Document>
+   Print 67|02 Date 70|02 02/28/20 75|02 14:21:20 81|02 Page 88|02 1 91|02 of 93|02 1 95|02
+   ORDER 49|04 WSIL 77|07 Orders 04|09 Order 15|09 / 18|09 Rev 19|09 : 21|09 14086 29|09
+   HARRISBURG 78|09 PADUCAH 78|10 CAPE 73|12 GIRARDEAU 80|12 Alt 14|11 Order 17|11 # 19|11
+   : 20|11 Product 16|13 Desc 20|13 : 22|13 Mike 29|13 Carr 32|13 for 34|13 Jackson 38|13
+   Co 41|13 States 45|13 Atty 48|13 Estimate 16|15 : 19|15 WSIL 71|15 - 74|15 TV 75|15
+   Flight 15|17 Dates 19|17 : 21|17 03/03/20 30|17 - 33|17 03/03/20 36|17 Primary 56|17
+   AE 59|17 : 61|17 David 71|17 Cisco 75|17 Original 16|19 Date 20|19 / 22|19 Rev 23|19
+   : 25|19 02/28/20/02/28/20 33|19 Sales 55|19 Office 59|19 : 61|19 LOCAL 72|19 Order 15|21
+   Type 19|21 : 21|21 GENERAL 31|20 Sales 55|21 Region 59|21 : 62|21 Local 72|21 Agency 05|24
+   Name 15|24 : 17|24 Committee 31|24 to 35|24 Elect 38|24 Mike 41|24 Carr 44|24 Cash 71|26
+   Buying 16|26 Contact 20|26 : 23|26 Billing 15|28 Contact 20|28 : 22|28 Billing 55|26
+   Type 59|26 : 61|26 Billing 55|28 Calendar 60|28 : 63|28 Calendar 73|28 101 29|30 S 30|30
+   TOWER 34|30 RD 37|30 EOM 71|30 / 73|30 EOC 75|30 Billing 55|30 Cycle 59|30 : 61|30
+   Agency 56|32 Commission 62|32 : 66|32 CARBONDALE 32|32 , 36|32 IL 37|32 62901-1936 42|32
+   0 70|32 % 71|32 Advertiser 06|36 Name 15|36 : 17|36 Committee 31|36 to 35|36 Elect 38|36
+   Mike 41|36 Carr 44|36 Demographic 17|38 : 22|38 HH 28|38 New 55|38 Business 59|38
+   Thru 64|38 : 65|38 Product 16|39 Codes 20|39 : 23|39 Candidates 31|39 Order 55|39
+   Separation 60|40 : 64|40 00:15:00 73|39 Priority 16|41 : 18|41 P 28|41 - 29|41 01 30|41
+   Advertiser 57|41 External 62|41 ID 65|41 : 67|41 33917 72|41 Revenue 16|43 Codes 21|43 :
+   23|43 DIR 28|43 , 30|43 POL 32|43 , 33|43 POL 35|43 - 37|43 CAND 39|43 Agency 56|43
+   External 61|43 ID 64|43 : 65|43 33917 72|43 Bill 04|46 Plan 06|46 Start 04|48 Date 07|48
+   End 13|47 Date 16|47 # 21|48 Spots 24|48 Gross 28|48 Amount 33|48 Net 38|47 Amount 42|48
+   Totals 52|46 Month 51|47 March 51|49 2020 55|49 # 64|47 Spots 66|48 Net 83|47 Amount 86|47
+   Gross 72|48 Amount 77|48 $ 75|49 600.00 78|49 Rating 94|48 0.00 95|49 03/01/20 05|49
+   03/03/20 14|49 3 25|49 3 68|49 $ 32|49 600.00 34|49 $ 43|49 600.00 45|49 $ 86|49
+   600.00 88|49 Totals 51|51 3 68|51 $ 75|51 600.00 77|51 $ 86|51 600.00 88|51 0.00 95|51
+   Account 05|53 Executives 12|53 Account 05|54 Executive 10|54 Sales 22|54 Office 26|54
+   Sales 32|54 Region 36|54 Start 42|54 Date 45|54 / 47|54 End 49|54 Date 52|54 Order 65|54
+   % 67|54 David 04|56 Cisco 08|56 Start 42|56 Of 45|56 Order 48|56 - 50|56 End 51|56 Of 54|56
+   Order 57|56 100 67|56 % 68|56 Len 61|61 Spots 65|61 : 61|63 30 62|63 3 67|63 Rate 71|61 Pri
+   75|61 Rtg 78|61 Type 81|61 Spots 86|61 $ 69|63 200.00 72|63 P 74|63 - 75|63 03 76|63
+   0.00 79|63 NM 82|63 3 87|63 Amount 93|61 $ 92|63 600.00 94|63 Ln 04|61 Ch 07|61 Start 13|61
+   End 18|61 Inventory 26|61 Code 31|61 Break 39|61 Start 10|65 Date 13|65 End 17|66 Date 20|66
+   Weekdays 27|66 Spots 35|66 / 37|66 Week 39|66 Rate 46|66 Rating 52|66 Week 06|67 : 08|67
+   03/02/20 11|67 03/08/20 18|67 -3-- 25|67 3 40|67 $ 43|67 200.00 45|67 0.00 53|67 Totals 79|69
+   3 87|69 $ 92|69 600.00 94|69
+   </Document>
+   <Task>
+   From the document, extract the text values and tags of the following
+   entities:
+   {"advertiser": "", "agency": "", "contract_num": "", "flight_from": "",
+   "flight_to": "", "gross_amount": "", "line_item": [{"channel": "",
+   "program_desc": "", "program_end_date": "", "program_start_date": "",
+   "sub_amount": ""}], "product": "", "property": "", "tv_address": ""}
+   </Task>
+   <Extraction>
+
+   =========================================== Completion ===========================================
+
+   {"advertiser": "Committee to Elect Mike Carr 44|24", "agency": "Cash 71|26",
+   "contract_num": "14086 29|09", "flight_from": "03/03/20 30|17", "flight_to": "03/03/20 36|17",
+   "gross_amount": "600.00 77|49", "line_item": [{"channel": "1 03|63",
+   "program_desc": "Your Voice Your Vote 34|64", "program_end_date": "03/03/20 13|63",
+   "program_start_date": "03/03/20 19|63", "sub_amount": "600.00 92|63"}],
+   "product": "WSIL 71|15 - 74|15 TV 75|15", "property": "WSIL 71|15 - 74|15 TV 75|15",
+   "tv_address": null}
+   </Extraction>
+
+Figure 14: VRDU Ad-Buy Form sample prompt and completion with 2 word-level [xcenter, ycenter] coordinates in the
+prompt and completion. With word-level coordinate tokens, the text sequence of the prompt is mostly composed of
+coordinate tokens, and becomes far from the usual text sequences LLMs are trained on.
+Figure 15: Nearest Neighbors on CORD, Example 1, retrieving examplars from the same merchant.
+Figure 16: Nearest Neighbors on CORD, Example 2, retrieving examplars from the same merchant.
+Figure 17: Nearest Neighbors on CORD, Example 3, retrieving examplars from the same merchant.
+Table 7: Parsing error rates from LMDXPaLM 2-S re-                  for the entity line_item/program_desc includes text
+sponses on VRDU Ad-Buy Mixed and CORD datasets.                     from the previous column "Channel" along with the
+                                                                    value in the column "Description". From the OCR
+|D| Dataset Invalid JSON Invalid Entity Entity Text                 line bounding boxes, we can see that these two
+                                            Value Format Not Found  columns are grouped as the same OCR line. In the
+                                                                    second example, the model confuses between the
+0 Ad-Buy       0.18%  0.04%  0.59%                                  adjacent keys "Invoice Period" and "Flight Dates"
+        CORD   0.00%  0.00%  0.00%                                  and extracts invoice dates as flight dates. Similar to
+                                                                    the first example, OCR line bounding boxes show
+10 Ad-Buy      0.27%  0.04%  0.44%                                  that the invoice dates and the key "Flight Dates"
+         CORD  0.00%  0.00%  0.00%                                  are grouped together in the same line although they
+                                                                    are semantically different. As LMDXPaLM 2-S uses
+50 Ad-Buy      0.24%  0.00%  0.17%                                  only coarse line layout information ([xcenter, ycenter]
+         CORD  0.06%  0.00%  0.00%                                  with 100 quantization buckets), the model fails in
+                                                                    these cases, which is a current limitation of LMDX.
+100 Ad-Buy     0.24%  0.00%  0.13%                                  We believe that incorporating the image modality
+         CORD  0.00%  0.03%  0.00%                                  will make LMDX more robust to those OCR errors.
+
+200 Ad-Buy     0.25%  0.00%  0.09%                                                                         Example 1:
+         CORD  0.00%  0.00%  0.00%                                                                             line_item/program_desc
+
+A.10 Completion Parsing Error Rates                                                                        Groundtruth:
+                                                                                                                Local News 6a-630a
+In this section, we report the various completion
+parsing error types and their occurrence rates for                                                         Prediction:
+LMDXPaLM 2-S.                                                                                                  WJZ Local News 6a-630a
+Invalid JSON Formatting. This refers to cases for
+which Python's json.loads(completion) fails                                             Example 2:  Prediction:
+on a LLM's completion. As observed in Table 7,                                                          flight_from: 11/25/19
+the JSON parsing error rate is below 0.3% in all                    Groundtruth:                        flight_to: 12/29/19
+training settings.                                                      flight_from: 12/24/19
+Invalid Entity Value Format. This refers to                             flight_to: 12/30/19
+cases where the leaf entity value does not fol-
+low the expected "<text-segment-1> XX|YY                            Figure 18: Typical error pattern of LMDXPaLM 2-S. In
+<text-segment-2> XX|YY" format. As observed                         both examples, the detected OCR lines are shown in red,
+in Table 7, the Invalid Entity Value Format Rate is                 the model predicted entities are shown in blue, and the
+below 0.05% in all training settings.                               groundtruth entities are shown in green. In both cases,
+Hallucination / Entity Text Not Found. This                         the detected OCR lines merge two semantically distinct
+refers to cases where the segment identifier is valid,              segments, causing the model to wrongly associate them
+but the entity text does not appear on the predicted                in its predictions.
+segment (hallucination). As observed in Table 7,
+the Entity Text Not Found error rate is below 0.6%                  A.12 Effect of Coordinate Tokenization
+in all training settings. As part of LMDX method-                            Schemes
+ology, we discard any prediction whose text does
+not appear on the specified segment, ensuring we                    In this section, we study how different de-
+discard all hallucination.                                          signs of coordinate tokens affect extraction qual-
+                                                                    ity, to determine which is the most effective.
+   Note that those numbers are computed at the                      There are many ways to tokenize the coordi-
+completion level. Since multiple completions are                    nates of the text segments, e.g. using line ver-
+sampled for each document chunk, the sampling                       sus words as segment, the number of coordi-
+scheme allows for correcting those errors and no                    nates to use per segment ([xcenter, ycenter] ver-
+document in the benchmarks fail extraction.                         sus [xmin, ymin, xmax, ymax]). To establish which
+
+A.11 Error Analysis
+
+In this section, we perform an error analysis on the
+test set to identify common error patterns of LMDX.
+A very common error type we observe is caused by
+OCR lines grouping multiple semantically different
+segments. We show two instance of those cases
+observed in LMDXPaLM 2-S on the VRDU Ad-Buy
+Form in Figure 18. In the first example, prediction
+scheme is the most effective, we evaluate the zero-                 LLM with long inputs and outputs. Nonetheless, its
+shot performance of LMDXPaLM 2-S on VRDU Reg-                       latency remains acceptable in a production setting.
+istration Form, Ad-Buy Form and CORD bench-
+marks with the following schemes:                                   Table 8: Median, 95th and 99th percentile latencies of
+                                                                    information extraction solutions on CORD. For text-
+          · 2 Line-level [xcenter, ycenter] coordinates with        based solutions LayoutLMv3 and LMDXGemini Pro, the
+            B = 100 quantization buckets.                           reported numbers do not include the OCR latency.
+
+          · 4 Line-level [xmin, ymin, xmax, ymax] coordi-                Model        Hardware       Latency (ms)
+            nates with B = 100 quantization buckets.                 LayoutLMv3
+                                                                                         CPU    Median 95th% 99th%
+                                                                         Donut         GPU T4
+                                                                    LMDXGemini Pro              648    999 1394
+                                                                                         CPU
+          · 2 Word-level [xcenter, ycenter] coordinates with                           GPU T4   30     55          93
+            B = 100 quantization buckets.
+                                                                                         TPU    14392 19427 20065
+
+                                                                                                620 1230 1683
+
+   An example of prompt and completion for each                                                 3653 7102 8345
+scheme is given in Appendix A.8. Results quality
+is given in Figure 19.                                              A.14 Ablation Detailed Metrics.
+
+   On all benchmarks, 2-line level [xcenter, ycenter]               In Table 9, we present the per-entity F1 score for
+coordinates obtains the best performance. This                      the coordinate ablations to highlight which entity
+is caused by that coordinate tokenization scheme                    most benefit from the introduction of layout infor-
+being very token efficient (see Appendix A.4). 2                    mation, and explain the large difference observed.
+Word-level [xcenter, ycenter] coordinates and 4 Line-
+level [xmin, ymin, xmax, ymax] coordinates increase                 Table 9: Ablation of coordinates for LMDXPaLM 2-S,
+the tokens used by coordinates drastically, leading                 where per-entity F1 scores are shown. Adding coor-
+to multiple chunks generated for each document                      dinates greatly increase the extraction quality of entity
+page, hence lowering quality since the model won't                  types that require the understanding of spatial alignment,
+be able to correctly predict entities spanning mul-                 such as line_item.
+tiple chunks. Furthermore, the large number of
+coordinate tokens added by those schemes makes                      Entity      Hierar- Number of With Without     
+the text sequences used in LMDX significantly dif-                              chical? occurrence Coord. Coord.
+ferent from the natural text sequences the LLM was
+pretrained on, hence making the LLM less effective                  advertiser        635       95.90  88.98       -6.92
+at interpreting them, thereby lowering extraction                                     283       73.05  71.84       -1.21
+quality.                                                            agency            624       78.37  74.00       -4.37
+                                                                                      540       67.74  63.63       -4.11
+                                                                    contract_num      538       75.57  70.38       -5.19
+                                                                                      629       98.86  98.47       -0.39
+                                                                    flight_from       607       87.86  75.33       -12.53
+                                                                                      535       81.04  78.13       -2.91
+                                                                    flight_to         595       77.75  74.33       -3.42
+                                                                                      9163      39.35  18.35       -21.00
+                                                                    gross_amount 
+
+          100                                                       product         
+
+               2 Word Coord.      4 Line Coord.   2 Line Coord.     tv_address 
+                                                       63.63 66.95
+Micro-F1  80 66.29 71.29 71.65             39.74                    property        
+                                24.59 26.31       49.26
+          60                                                        line_item       
+                                     Ad-Buy            CORD
+          40
+
+          20   Registration                                            Overall, performance is lower across the board
+                                                                    without coordinates, as the VRDU Ad-Buy form
+Figure 19: Zero-shot performance of LMDXPaLM 2-S                    benchmark consists entirely of invoices, a very
+on VRDU Registration Form Mixed Template, Ad-Buy                    layout-heavy document, where the alignment of
+Form Mixed Template, and CORD with different coor-                  the key segments (e.g. "Contract Number: ", "To-
+dinate tokenization schemes. On all benchmarks, 2-line              tal Due:", "Product:") and value segments (e.g.
+level [xcenter, ycenter] coordinates obtains the best perfor-       "123456", "$1000", "Political Advertisement")
+mance.                                                              matters a lot for the correct understanding of most
+                                                                    entities. Thus, removing the layout modality will
+A.13 Latency Comparison                                             have a stark difference in performance. However,
+                                                                    not all entities are affected in the same way:
+In Table 8, we compare the latencies of LMDX
+and other methodologies, LayoutLMv3 and Donut.                         · 8 out of 9 leaf entities see single digit
+Overall, LayoutLMv3 is the fastest model, as it                           drops, with gross_amount affected the least.
+is encoder-only. LMDXGemini Pro is the slowest                            gross_amount can be derived mostly without
+among accelerated models, due to its reliance on an
+  looking at its key (e.g."Amount Due") and            All extraction benchmarks we used are publicly
+  simply using cues commonly found in money         available for research purposes, and we limited
+  amount entities (e.g. "$", "USD", etc).           their usage to this research work. We also checked
+                                                    these datasets to ensure that no personally identifi-
+· line_item, the hierarchical entity in Ad-         able information is involved.
+  Buy form, is affected the most. This is
+  expected as line_item's components (chan-
+  nel, program_desc, program_start_date, pro-
+  gram_end_date, sub_amount) are always vi-
+  sually arranged in tables, hence understand-
+  ing horizontal and vertical alignments of the
+  different text lines (which the coordinates pro-
+  vide) are critical for the correct grouping of
+  those components into line_items.
+
+· Since line_items are by far the most common
+  entity in VRDU Ad-Buy form (9163 occur-
+  rences), they have the most effect on the over-
+  all micro-F1.
+
+A.15 Datasets Details
+
+As part of this work, we used the following
+datasets:
+
+· VRDU (Wang et al., 2023d) consists of two
+  public visually-rich documents information
+  extraction benchmarks: Registration Form,
+  which consists of 1915 documents recording
+  foreign agents' activities with the US govern-
+  ment requiring public disclosure, and Ad-Buy
+  Form, which consists of 641 signed receipts
+  between a TV station and a political campaign
+  group, requiring public disclosure to the Fed-
+  eral Communications Commission. All data is
+  in English, and publicly available for research
+  purposes.
+
+· CORD (Park et al., 2019) consists of 1000
+  Indonesian receipts from various shops and
+  restaurants, on which the authors de-identified
+  identifiable information. The data is a mix
+  of Indonesian and English languages, and is
+  publicly available for research purposes.
+
+· Payment (Majumder et al., 2020) is a dataset
+  of 14,237 single-page invoices, annotated with
+  Each invoice is from a different vendor, so the
+  documents do not share any common tem-
+  plates. All the data is in English.
+
+· Synthetic Forms. Finally, we generated syn-
+  thetic training data using blank PDF form tem-
+  plates crawled from government websites, and
+  filled with fully synthetic values using an in-
+  ternal tool. All generated data is in English.
+

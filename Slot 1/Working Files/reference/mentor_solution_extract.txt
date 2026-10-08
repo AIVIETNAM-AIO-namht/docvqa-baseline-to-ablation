@@ -1,0 +1,1532 @@
+
+===== PAGE 1 =====
+Tutorial: Xây dựng hệthống hỏi đáp trên
+ảnh tài liệu (Olympic AI)
+Trần Quang Minh
+Đinh Quang Vinh
+AI VIETNAM xin chân thành cảm ơn trường: Học viện Công nghệBưu chính Viễn thông
+(PTIT) đã cho phép sửdụng đềthi cuộc thi OAI làm dữliệu cho project này. Thông tin về
+cuộc thi và bộdữliệu có tại Khoa AI - PTIT và VOAI.
+I.
+Giới thiệu
+Trong nhiều hoạt động hằng ngày, từxửlý hồsơ hành chính, kiểm tra hóa đơn đến tổng hợp
+báo cáo và biểu mẫu, con người thường phải đọc tài liệu đểtìm kiếm và lấy ra thông tin cần
+thiết. Tuy nhiên, người dùng thường chỉquan tâm đến một phần cụthể, chẳng hạn tổng chỉ
+tiêu của hai phòng ban, một giá trịtrong bảng hay mục có sốliệu lớn nhất. Khi sốlượng tài
+liệu tăng lên, việc tựmởtừng trang, dò đúng vịtrí rồi tính toán hoặc so sánh thủcông sẽtrở
+nên tốn thời gian, vì vậy một cách tiếp cận cho phép người dùng hỏi trực tiếp và nhận lại thông
+tin cần thiết sẽtrởnên hữu ích hơn.
+OCR
+Phòng Kinh doanh
+[120, 220, 320, 260]
+1.800
+[520, 220, 620, 260]
+Phòng Kỹ thuật
+[120, 300, 320, 340]
+1.200
+[520, 300, 620, 340]
+Câu hỏi: Tổng chỉ
+tiêu của hai phòng
+ban Kinh doanh và
+kỹ thuật là bao
+nhiêu?
+Answer: 3000
+Evidences
+Hình 1: Minh họa quá trình trảlời câu hỏi trên tài liệu từOCR đến đáp án và evidence.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 1
+
+===== PAGE 2 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Từnhu cầu đó hình thành bài toán Document Visual Question Answering (Document
+VQA). Hệthống nhận vào một tài liệu cùng câu hỏi vềnội dung bên trong và cần đưa ra câu
+trảlời phù hợp. Khác với hỏi đáp trên văn bản thuần túy, thông tin trong tài liệu còn được
+thểhiện qua cách nội dung được bốtrí trên trang, chẳng hạn các hàng và cột trong bảng. Vì
+nhiều tài liệu tồn tại dưới dạng ảnh chụp hoặc bản scan, Optical Character Recognition
+(OCR) thường được sửdụng đểchuyển chữtrong ảnh thành văn bản sốkèm vịtrí tương ứng
+trên trang, tạo đầu vào đểhệthống tiếp tục xác định thông tin liên quan và trảlời câu hỏi.
+Trong challenge lần này của Olympic AI PTIT 2026, bài toán Document Visual Question
+Answering được đặt trong bối cảnh các tài liệu có nhiều bảng biểu và thông tin được tổchức
+theo bốcục. Với mỗi câu hỏi, hệthống không chỉcần đưa ra đáp án mà còn phải chỉra những
+vùng trên tài liệu đã được sửdụng làm bằng chứng. Điều này khiến bài toán gần hơn với nhu
+cầu thực tế, nơi một câu trảlời hữu ích không chỉcần đúng mà còn cần cho biết nó được lấy
+từđâu.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 2
+
+===== PAGE 3 =====
+Mục lục
+I.
+Giới thiệu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+1
+II.
+Phân tích đềthi
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+1.
+Thểlệvà yêu cầu của cuộc thi
+. . . . . . . . . . . . . . . . . . . . . . . . .
+4
+2.
+Dữliệu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+3.
+Hướng triển khai . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+4.
+Kiến thức cần có . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+14
+III.
+Xây dựng lời giải . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+1.
+Chuẩn bịthực hành
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+2.
+Biểu diễn tài liệu từdữliệu đầu vào
+. . . . . . . . . . . . . . . . . . . . . .
+16
+3.
+Phân tích câu hỏi thành biểu diễn có cấu trúc (Structured Intent) . . . . . .
+16
+4.
+Xác định vùng bảng và khôi phục cấu trúc không gian
+. . . . . . . . . . . .
+19
+5.
+Truy xuất hàng và ô đích
+. . . . . . . . . . . . . . . . . . . . . . . . . . . .
+21
+6.
+Thực hiện suy luận trên dữliệu đã truy xuất
+. . . . . . . . . . . . . . . . .
+22
+7.
+Tính tổng giữa nhiều trang (Cross-page Sum) . . . . . . . . . . . . . . . . .
+25
+8.
+Nhận diện hàng in đậm từảnh (Visual Bold Lookup) . . . . . . . . . . . . .
+25
+9.
+Điều phối các nhánh suy luận . . . . . . . . . . . . . . . . . . . . . . . . . .
+28
+10.
+Kết quảđánh giá . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+28
+Phụlục . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+29
+3
+
+===== PAGE 4 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+II.
+Phân tích đềthi
+1.
+Thểlệvà yêu cầu của cuộc thi
+Trong challenge Document Visual Question Answering của Olympic AI PTIT 2026, mỗi mẫu
+dữliệu gồm một tài liệu dạng ảnh cùng các câu hỏi liên quan đến nội dung bên trong. Hệthống
+cần trảlời đúng câu hỏi, đồng thời xác định những vùng trên tài liệu đã được sửdụng làm
+bằng chứng cho câu trảlời.
+1.1 Đầu vào và đầu ra của bài toán
+Đầu vào của mỗi mẫu gồm một tài liệu có từ1 đến 2 trang ảnh, kết quảOCR tương ứng
+với từng trang và các câu hỏi vềnội dung tài liệu. OCR cung cấp cảnội dung văn bản và
+bounding box của từng khối, nhờđó hệthống có thểbiết một đoạn text xuất hiện ởđâu trên
+trang. Mỗi tài liệu có 10 câu hỏi, trong đó đáp án có thểlà văn bản xuất hiện trực tiếp trong
+tài liệu hoặc một giá trịsốcần được tính toán từdữliệu trong bảng.
+Với mỗi câu hỏi, hệthống cần trảvềhai thành phần:
+• Answer: Câu trảlời cuối cùng.
+• Evidence: Một hoặc nhiều vùng trên tài liệu chứa những thông tin được sửdụng đểtạo
+ra câu trảlời.
+Như vậy, bài toán không chỉyêu cầu tìm đúng đáp án mà còn yêu cầu xác định được nguồn
+thông tin dẫn đến đáp án đó.
+1.2 Cấu trúc một mẫu dữliệu
+Một document bao gồm ảnh của từng trang, OCR tương ứng và 10 câu hỏi được định danh
+bằng question_id. Riêng ởtập training, ban tổchức cung cấp thêm các annotation phục vụ
+quá trình phân tích và xây dựng lời giải, gồm:
+• đáp án đúng
+• loại câu hỏi
+• loại suy luận cần thực hiện
+• vùng bằng chứng tương ứng
+• thông tin chú thích của các ô trong bảng, bao gồm hàng, cột, nội dung và vịtrí
+Các thành phần này có thểđược hình dung trực quan như trong hình dưới đây. Phần bên trái
+là những dữliệu hệthống nhận được như ảnh tài liệu, OCR kèm bounding box và câu hỏi.
+Phần bên phải là các annotation chỉcó ởtraining, bao gồm answer, reasoning type, evidence
+và thông tin chi tiết của các cell.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 4
+
+===== PAGE 5 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Input
+Training annotations
+Page image
+ID: B-train-00101-q04
+OCR + BBox
+Questions
+Tổng kế hoạch của Miền
+... là bao nhiêu?
+Answer: 7.440
+Reasoning type
+Evidences
+Cell annotations
+Hình 2: Cấu trúc một mẫu dữliệu trong training set
+1.3 Cấu trúc file nộp
+Kết quảdựđoán được lưu trong file predictions.jsonl, trong đó mỗi dòng tương ứng với
+một câu hỏi:
+{
+"question_id": "...",
+"answer": "...",
+"evidence": [
+{
+"page": 0,
+"bbox": [x1, y1, x2, y2]
+}
+]
+}
+Sau đó, file predictions.jsonl được đóng gói thành file ZIP đểnộp lên hệthống chấm.
+Trong bbox = [x1, y1, x2, y2], cặp (x1, y1) là góc trên bên trái và (x2, y2) là góc dưới
+bên phải của vùng. Các tọa độđược chia cho chiều rộng hoặc chiều cao của trang nên có giá
+trịtừ0 đến 1.
+1.4 Cách tính điểm
+Điểm của mỗi câu hỏi được tính từhai thành phần:
+Question Score = 0.85 × ANLS + 0.15 × Evidence-F1
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 5
+
+===== PAGE 6 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Trong đó, Average Normalized Levenshtein Similarity (ANLS) đo mức độgiống nhau
+giữa câu trảlời dựđoán và đáp án đúng dựa trên sốký tựcần thêm, xóa hoặc thay thế.
+Evidence-F1 đánh giá các vùng bằng chứng được hệthống xác định. Như vậy, phần trảlời
+chiếm 85% tổng điểm của mỗi câu hỏi, trong khi phần bằng chứng đóng góp 15%.
+Đểtính Evidence-F1, trước hết cần xác định một vùng bằng chứng dựđoán có khớp với vùng
+ground truth hay không. Việc so khớp này sửdụng Intersection over Union (IoU), là tỷlệ
+giữa diện tích phần giao và diện tích phần hợp của hai bounding box.
+Hình 3: Minh họa Intersection over Union giữa Predicted và Ground Truth Bounding Box
+Trong challenge, một vùng bằng chứng dựđoán được xem là khớp khi:
+• nằm trên cùng trang với vùng ground truth
+• có IoU ≥0.5
+Từcác cặp vùng được xác định là khớp, hệthống tính precision, tức tỷlệvùng dựđoán thực
+sựđúng, và recall, tức tỷlệvùng đúng đã được tìm thấy. Hai giá trịnày được kết hợp thành
+Evidence-F1. Vì vậy, một lời giải tốt không chỉcần trảlời đúng câu hỏi mà còn cần xác định
+tương đối chính xác vịtrí của những thông tin đã được sửdụng đểđưa ra câu trảlời.
+1.5 Public test và private test
+Dữliệu của cuộc thi được chia thành ba phần:
+Tập dữliệu
+Documents
+Pages
+Questions
+Training set
+1,100
+1,426
+11,000
+Public test
+100
+131
+1,000
+Private test
+200
+265
+2,000
+Public test được sửdụng đểcung cấp phản hồi trong quá trình thi, giúp các đội quan sát kết
+quảvà điều chỉnh phương pháp. Private test được dùng đểxác định kết quảcuối cùng, vì vậy
+lời giải cần hoạt động ổn định trên cảdữliệu đã dùng đểphát triển lẫn những tài liệu chưa
+được quan sát trước đó.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 6
+
+===== PAGE 7 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+2.
+Dữliệu
+Dữliệu của challenge được tổchức theo từng document, mỗi document gồm một đến hai trang
+ảnh và đi kèm 10 câu hỏi. Bộdữliệu được chia thành Training set, Public test và Private test.
+Phần Exploratory Data Analysis (EDA), hay phân tích khám phá dữliệu, dưới đây được
+thực hiện trên Training set nhằm tìm ra các quy luật làm cơ sởxây dựng lời giải.
+2.1 Cấu trúc dữliệu
+Ởcảtraining và test, hệthống đều nhận được ảnh tài liệu, kết quảOCR kèm vịtrí của các
+khối văn bản và các câu hỏi liên quan đến document. Riêng Training set cung cấp thêm các
+annotation như đáp án đúng, loại suy luận, vùng bằng chứng và thông tin chi tiết của các ô
+trong bảng.
+Thành phần
+Training
+Test
+Ảnh tài liệu
+✓
+✓
+OCR và Bounding Box
+✓
+✓
+Câu hỏi
+✓
+✓
+Answer và Evidence
+✓
+×
+Cell annotations
+✓
+×
+Một mẫu training vì vậy có thểđược nhìn như sựkết hợp giữa ảnh, OCR, câu hỏi và các
+nhãn huấn luyện. OCR cung cấp nội dung chữcùng bounding box chuẩn hóa của từng khối,
+còn phần nhãn bổsung đáp án, loại suy luận, evidence và cấu trúc các ô trong bảng. Nhờđó,
+tập training không chỉcho biết đáp án cuối cùng mà còn cho phép đối chiếu câu hỏi với các
+vùng và ô dữliệu liên quan.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 7
+
+===== PAGE 8 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+2.2 Phân bốcác loại suy luận
+Các câu hỏi trong Training set được chia thành tám loại suy luận chính: Lookup, Sum,
+Count, Argmax, Argmin, Compare, Visual Bold Lookup và Cross-page Sum.
+Phân bốcho thấy phần lớn dữliệu tập trung vào các thao tác có cấu trúc trên bảng, trong khi
+Visual Bold Lookup và đặc biệt Cross-page Sum chỉchiếm tỷlệnhỏ. Nhìn tổng thể, khoảng
+95% câu hỏi có thểquy vềcác thao tác có cấu trúc trên bảng.
+Hình 4: Phân bốsốlượng câu hỏi theo từng loại suy luận trong tập huấn luyện.
+2.3 Các quy luật đáng chú ý từEDA
+EDA cho thấy vịtrí của các ô trong bảng khá ổn định. Các cell thuộc cùng hàng hoặc cùng cột
+thường thẳng hàng, còn header thường nằm ngay phía trên các cell dữliệu tương ứng. Điều
+này cho thấy cấu trúc bảng vẫn được phản ánh khá rõ qua bounding box, dù OCR không biểu
+diễn trực tiếp quan hệhàng và cột.
+Row alignment 
+Header-to-cell alignment 
+Column alignment 
+Hình 5: Các pattern vềbốcục và alignment trong bảng
+Bên cạnh đó, cách đặt câu hỏi cũng có tính lặp lại tương đối cao. Nhiều loại suy luận thường
+đi kèm những cụm từđặc trưng và ít dùng chung với loại khác, trong khi Lookup có cách diễn
+đạt đa dạng hơn các nhóm còn lại.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 8
+
+===== PAGE 9 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Reasoning type
+Distinctive cues
+Within type
+Outside type
+argmax
+lớn nhất, nào có
+100%
+~0%
+argmin
+nhỏ nhất, nào có
+100%
+~0%
+compare
+với dòng có, so sánh tại 
+bảng
+100%
+0%
+count
+có bao nhiêu dòng
+100%
+0%
+sum
+tổng, hai dòng có
+100%
+0%
+lookup
+tại bảng, ghi ... bằng bao 
+nhiêu
+62%
+23%
+visual_bold_lookup
+in đậm, chữ, ảnh
+100%
+0%
+cross_page_sum
+cộng với, kết quả
+100%
+0%
+Hình 6: Tính lặp lại trong cách đặt câu hỏi theo từng loại suy luận
+Ngoài những quy luật phổbiến, dataset còn có một sốtrường hợp đặc biệt. Với Cross-page
+Sum, phép xửlý vẫn là cộng nhưng các giá trịcần dùng có thểnằm ởnhiều trang khác nhau
+của cùng document.
+Page 1
+Page 2
+Hình 7: Ví dụcâu hỏi Cross-page Sum với dữliệu nằm trên nhiều trang
+Trong khi đó, Visual Bold Lookup là trường hợp mà OCR không đủ, vì thuộc tính in đậm
+không được biểu diễn trong text hay bounding box. Do đó ảnh gốc vẫn chứa một phần thông
+tin cần thiết đểtrảlời câu hỏi.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 9
+
+===== PAGE 10 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Hình 8: Ví dụVisual Bold Lookup cần khai thác thông tin trực tiếp từảnh
+Tổng hợp các quan sát trên cho thấy dataset có mức độcấu trúc khá rõ ởcảbốcục bảng lẫn
+cách đặt câu hỏi, đồng thời vẫn tồn tại một sốtrường hợp yêu cầu kết hợp thông tin giữa nhiều
+trang hoặc khai thác trực tiếp tín hiệu từảnh. Đây là cơ sởđểlựa chọn hướng triển khai phù
+hợp ởphần tiếp theo.
+3.
+Hướng triển khai
+Từkết quảEDA có thểthấy bài toán có mức độcấu trúc khá rõ. Phần lớn câu hỏi xoay quanh
+một sốthao tác cụthểtrên bảng, cách diễn đạt có nhiều mẫu lặp lại, còn vịtrí của các OCR
+block vẫn giữđược nhiều thông tin vềbốcục tài liệu. Vì vậy, lời giải được thiết kếtheo hướng
+khai thác trực tiếp những đặc điểm này thay vì xửlý toàn bộtài liệu như một chuỗi văn bản
+phẳng.
+3.1 TừEDA đến lựa chọn hướng xửlý
+Lời giải kết hợp ba nguồn thông tin chính là text, vịtrí và ảnh. Text cung cấp nội dung của
+từng OCR block, còn bounding box cho biết vịtrí và quan hệkhông gian giữa các block trên
+trang. Hai nguồn này được dùng đểxửlý phần lớn câu hỏi, từxác định đúng vùng bảng đến
+tìm hàng và ô dữliệu liên quan.
+Ảnh gốc chỉđược sửdụng khi thông tin cần trảlời không được thểhiện trong OCR. Chẳng
+hạn với Visual Bold Lookup, OCR vẫn cung cấp text và bounding box của các dòng liên quan
+nhưng không lưu thông tin vềđộđậm của chữ. Khi đó, lời giải trước tiên dùng nội dung và vị
+trí đểtìm các hàng ứng viên, tức những hàng có khảnăng chứa đáp án, rồi mới quay lại ảnh
+gốc đểxác định hàng nào có nét chữđậm hơn.
+Với những câu hỏi có dữliệu nằm trên nhiều trang, hướng xửlý cũng không thay đổi hoàn
+toàn. Hệthống vẫn truy xuất các giá trịcần thiết theo cùng cách như trên một trang, nhưng
+mởrộng phạm vi tìm kiếm sang từng trang liên quan trước khi thực hiện phép tính.
+Quy trình tổng quát trong tài liệu gồm:
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 10
+
+===== PAGE 11 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Document Images
+Bounding box
+(text + geometry)
+Question
+Table Reconstruction
+Candidate Rows and Cells
+Intent and Constraint Extraction
+Reasoning Router
+Bold Row Resolver
+Lookup Solver
+Aggregation Solver
+Ranking Solver
+Comparison Solver
+Answer
+Evidence
+Result
+OCR
+inference
+page pixels
+Question
+Constraints
+Hình 9: Tổng quan pipeline xửlý câu hỏi và sinh Answer, Evidence.
+3.2 Từcâu hỏi đến Structured Intent
+Bước đầu tiên là chuyển câu hỏi từngôn ngữtựnhiên thành Structured Intent, một biểu
+diễn có cấu trúc chứa những thông tin mà các bước phía sau cần sửdụng. Các thông tin này
+gồm loại suy luận, trang, bảng, cột cần lấy giá trịvà những điều kiện dùng đểxác định hàng.
+Ví dụ, với câu hỏi yêu cầu tính tổng giá trịTuyển mới của hai phòng ban cụthể, hệthống
+cần nhận ra đây là một phép Sum, xác định đúng trang và bảng, chọn Tuyển mới làm cột cần
+lấy giá trị, sau đó tách các điều kiện vềphòng ban và định biên đểtìm các hàng liên quan.
+Do cách đặt câu hỏi trong dataset có nhiều mẫu lặp lại, lời giải ưu tiên phân tích dựa trên các
+mẫu câu thường gặp. Khi câu hỏi không khớp hoàn toàn, hệthống thửdùng một sốquy tắc
+bổsung đểnhận diện loại suy luận và lấy lại các thông tin đơn giản. Cơ chếnày hỗtrợchủ
+yếu các câu hỏi trên một trang. Cross-page Sum và Visual Bold Lookup vẫn phụthuộc vào các
+mẫu câu chuyên biệt.
+3.3 Khôi phục cấu trúc bảng từOCR và vịtrí
+OCR chỉcung cấp text và bounding box của từng block, chứkhông biểu diễn trực tiếp block
+nào thuộc cùng hàng, header (tiêu đềcột) nào tương ứng với cell (ô dữliệu) nào hay đâu là
+phạm vi của từng bảng. Vì vậy, lời giải giữlại toàn bộthông tin vịtrí của OCR đểkhôi phục
+các quan hệnày.
+Đểkhôi phục cấu trúc bảng, hệthống trước tiên xác định vùng bảng cần xửlý. Những OCR
+block có cùng vịtrí mép trên y1 được gom thành các hàng vật lý. Khi một cell kéo dài qua
+nhiều hàng, hệthống dùng thêm điểm đại diện row_y đểdựng lại hàng logic đầy đủ. Quan hệ
+theo cột được xác định dựa trên vịtrí tâm theo chiều ngang, tức trục X, của header.
+Trong thực tế, một OCR block không phải lúc nào cũng tương ứng chính xác với một cell hoặc
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 11
+
+===== PAGE 12 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+một hàng trong bảng. Nội dung có thểbịtách thành nhiều block hoặc một block có thểkéo
+dài qua nhiều hàng, vì vậy hệthống cần điều chỉnh lại cách nhóm các block đểkhôi phục được
+những hàng dữliệu hoàn chỉnh trước khi truy xuất.
+Hai quy tắc chính được minh họa trong tài liệu:
+header x-range = [0.23, 0.35] 
+header center-X = (x1 + x2) / 2 ≈ 0.29 
+→ cell.x1 ≤ header center-X ≤ cell.x2
+→ same column 
+cell.y1 ≤ row_y ≤ cell.y2 
+→ same row
+Hình 10: Khôi phục quan hệhàng và cột từbounding box OCR.
+Với hàng, các block có vịtrí Y phù hợp được nhóm vào cùng một dòng dữliệu. Với cột, sau
+khi xác định một header như Hồsơ nhận, hệthống lấy tâm theo trục X của header làm mốc
+và tìm cell có vùng X bao quanh vịtrí đó. Nhờvậy, mỗi OCR block không chỉđược nhận diện
+vềmặt nội dung mà còn được gắn với đúng vịtrí trong cấu trúc bảng.
+3.4 Truy xuất dữliệu trước, suy luận sau
+Sau khi câu hỏi đã được chuẩn hóa và cấu trúc bảng được khôi phục, hệthống mới truy xuất
+những dữliệu cần thiết. Các điều kiện trong Structured Intent được dùng đểtìm đúng hàng,
+sau đó cột cần lấy giá trịđược dùng đểxác định cell tương ứng.
+Các loại suy luận khác nhau chủyếu ởcách xửlý sau khi dữliệu đã được truy xuất:
+• Lookup: tìm một hàng thỏa điều kiện rồi lấy trực tiếp giá trịởcột được yêu cầu.
+• Count: tìm tất cảcác hàng thỏa điều kiện rồi đếm sốlượng.
+• Sum: xác định các hàng tương ứng với từng nhóm điều kiện, lấy giá trịởcùng một cột
+rồi cộng lại.
+• Compare: truy xuất hai hàng cần so sánh, lấy giá trịởcột được chỉđịnh rồi chọn đối
+tượng phù hợp với điều kiện lớn hơn hoặc nhỏhơn trong câu hỏi.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 12
+
+===== PAGE 13 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+• Argmax và Argmin: xét các giá trịtrong một cột đểtìm hàng có giá trịlớn nhất hoặc
+nhỏnhất, sau đó lấy thông tin cần trảvềtừchính hàng đó.
+• Cross-page Sum: vẫn sửdụng cách truy xuất tương tựSum, nhưng các giá trịcần tính
+được lấy từnhững trang khác nhau trước khi cộng lại.
+• Visual Bold Lookup: vẫn bắt đầu bằng nội dung và vịtrí đểxác định các hàng ứng
+viên, sau đó mới dùng ảnh gốc đểchọn hàng có nét chữđậm hơn.
+Điểm chung của các nhánh xửlý là phần suy luận chỉbắt đầu sau khi phạm vi dữliệu liên
+quan đã được xác định. Nhờđó, mỗi loại câu hỏi chỉcần làm việc với những hàng và ô thực sự
+cần thiết thay vì xửlý toàn bộdocument cùng lúc.
+3.5 Tạo Evidence từcâu hỏi và kết quảtruy xuất
+Evidence không được lấy từtoàn bộhàng hay toàn bộbảng. Hệthống chỉgiữlại các OCR
+block tạo thành đường dẫn từcâu hỏi đến đáp án, gồm các ô chứa đối tượng hoặc điều kiện
+được nhắc đến trong câu hỏi và các ô giá trịtrực tiếp tham gia vào phép tính, so sánh hoặc
+kết quảtrảvề.
+Ví dụ, với câu hỏi tính tổng Tuyển mới của hai dòng có Phòng ban Kinh doanh và Kếtoán,
+hệthống truy xuất hai cặp dữliệu Kinh doanh -> 3 và Kếtoán -> 5. Evidence khi đó gồm
+bốn ô Kinh doanh, 3, Kếtoán và 5, vì đây là những thông tin cần thiết đểkiểm tra lại đáp
+án 8.
+Quy tắc chọn evidence cho từng loại câu hỏi được tóm tắt như sau:
+Loại câu hỏi
+Các ô được đưa vào evidence
+Lookup
+Ô điều kiện xác định hàng và ô chứa đáp án
+Count
+Ô điều kiện của các hàng được đếm
+Sum
+Ô điều kiện của hai hàng và hai ô giá trịđược cộng
+Compare
+Ô điều kiện và ô giá trịcủa cảhai hàng được so sánh
+Argmax và Argmin
+Các ô tối thiểu đểxác định hàng thắng và ô chứa giá trịcực trị
+Cross-page Sum
+Ô điều kiện và ô giá trịcủa từng toán hạng trên mỗi trang
+Visual Bold Lookup
+Ô điều kiện của cảhai hàng ứng viên và ô đáp án của hàng in đậm
+Với Argmax và Argmin, ô chứa đáp án đôi khi chưa đủđểxác định duy nhất một hàng. Chẳng
+hạn, nếu bảng có hai dòng cùng mang tên Kếtoán nhưng có Định biên lần lượt là 30 và 34,
+evidence cần chứa thêm Định biên đểphân biệt. Nếu dòng Kếtoán -> 30 có Tuyển mới lớn
+nhất là 5, evidence tương ứng sẽgồm Kếtoán, 30 và 5.
+Với Visual Bold Lookup, cảhai hàng ứng viên đều được dùng đểso sánh kiểu chữnên điều
+kiện của cảhai phải xuất hiện trong evidence, dù đáp án cuối cùng chỉđược lấy từhàng in
+đậm. Các header chỉhỗtrợđịnh vịcột và các vùng không trực tiếp chứng minh câu trảlời sẽ
+không được đưa vào kết quả, qua đó hạn chếbounding box dư thừa làm giảm precision.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 13
+
+===== PAGE 14 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+4.
+Kiến thức cần có
+Đối với challenge này, người tham gia cần có nền tảng vềxửlý tài liệu, thịgiác máy tính và
+các kỹthuật xửlý dữliệu có cấu trúc. Việc nắm được những kiến thức này sẽgiúp quá trình
+phân tích đề, lựa chọn hướng tiếp cận và xây dựng lời giải trởnên thuận lợi hơn.
+Vềmặt lý thuyết, một sốnhóm kiến thức đáng chú ý gồm:
+• Optical Character Recognition và xửlý tài liệu: hiểu cách văn bản được nhận diện
+từảnh, cách vịtrí của nội dung được biểu diễn và cách khai thác bốcục của tài liệu.
+• Computer Vision cơ bản: nắm các kỹthuật xửlý ảnh như phân ngưỡng sáng tối, cắt
+vùng ảnh, trích xuất đặc trưng và các mô hình mạng nơ-ron tích chập (CNN) phổbiến.
+• Xửlý ngôn ngữtựnhiên cơ bản: có khảnăng phân tích câu hỏi, nhận diện ý định
+và trích xuất các thông tin cần thiết từcâu.
+• Xửlý dữliệu có cấu trúc: hiểu cách làm việc với bảng, hàng, cột, điều kiện lọc, các
+phép tổng hợp và so sánh.
+• Kỹthuật đánh giá mô hình: nắm các metric phổbiến cho bài toán hỏi đáp, phát hiện
+vùng và so khớp kết quả.
+Vềmặt thực hành, người tham gia nên có nền tảng Python và làm quen với các thư viện như
+NumPy, OpenCV, PIL/Pillow và PyTorch đểxửlý dữliệu và xây dựng mô hình.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 14
+
+===== PAGE 15 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+III.
+Xây dựng lời giải
+Phần này hiện thực hóa hướng tiếp cận đã trình bày ởtrên thành một quy trình hoàn chỉnh.
+Thay vì xửlý tài liệu như một chuỗi văn bản phẳng, hệthống lần lượt chuẩn hóa dữliệu đầu
+vào, phân tích câu hỏi, truy xuất các ô liên quan, thực hiện phép suy luận và tạo ra answer
+cùng evidence.
+1.
+Chuẩn bịthực hành
+Trước khi bắt đầu, tải bộdữliệu được đính kèm trong phần Phụlục và giải nén vào DocViV
+QA/data/. Sau khi giải nén, thư mục này cần chứa ba tập training_set, public_test và
+private_test.
+Notebook chính sửdụng NumPy, OpenCV, Pillow, PyTorch và Torchvision. Khi chạy local,
+cần mởsubmission_pipeline.ipynb với DocViVQA/notebooks làm working directory đểcác
+đường dẫn tương đối tới data, artifacts và outputs được xác định đúng.
+1 DocViVQA/
+2 |-- data/
+3 |
+|-- training_set/
+4 |
+|-- public_test/
+5 |
+`-- private_test/
+6 |-- artifacts/models/
+7 |-- notebooks/
+8 |-- outputs/
+9 `-- scripts/
+Đểchạy lại lời giải, thực hiện theo thứtựsau:
+1. Tải và giải nén data.zip vào DocViVQA/data/.
+2. Mởtrain_bold_pair_colab.ipynb trên Colab, chọn GPU và chạy toàn bộnotebook.
+Sau đó tải file trọng sốđã huấn luyện bold_pair_resnet18.pt vềDocViVQA/artifacts
+/models/.
+3. Mởsubmission_pipeline.ipynb từthư mục DocViVQA/notebooks/, đặt SPLIT =
+"training_set" và chạy lần lượt các cell đểsinh prediction.
+4. Từthư mục gốc của repository, chạy lệnh sau đểđánh giá kết quả:
+1 python
+DocViVQA/scripts/ evaluate_predictions .py DocViVQA/outputs/
+predictions_training_set .jsonl
+Script xuất kết quảtheo từng reasoning type và lưu riêng những câu chưa đạt điểm tối đa đểtiếp
+tục phân tích. Khi chạy trên test, chỉcần đổi SPLIT thành public_test hoặc private_test.
+Hai tập này không có label đểđánh giá local.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 15
+
+===== PAGE 16 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+2.
+Biểu diễn tài liệu từdữliệu đầu vào
+Mỗi document có một file OCR và một hoặc hai ảnh trang. Bước đầu tiên đọc manifest.jsonl,
+tức file liệt kê ID cùng đường dẫn OCR và ảnh của từng document, rồi gom các OCR block
+vào một biểu diễn chung. Kết quảcần giữđược text, bounding box, sốtrang và đường dẫn ảnh
+đểcác bước sau có thểsửdụng cùng một đầu vào.
+1 @dataclass
+2 class
+DocumentLayout :
+3
+document_id: str
+4
+blocks: list[dict]
+5
+image_paths: list[Path] = field( default_factory =list)
+6
+7
+8 def
+load_split(split_dir):
+9
+manifests = read_jsonl(split_dir / "manifest.jsonl")
+10
+questions = read_jsonl(split_dir / "questions.jsonl")
+11
+layouts = {}
+12
+13
+for
+manifest in manifests:
+14
+ocr_path = split_dir / manifest["ocr_path"]
+15
+payload = json.loads(ocr_path.read_text(encoding="utf -8"))
+16
+layouts[manifest["id"]] = DocumentLayout (
+17
+document_id=manifest["id"],
+18
+blocks =[ block for page in payload["pages"] for block in
+page["blocks"]],
+19
+image_paths =[ split_dir / path for path in manifest["
+image_paths"]],
+20
+)
+21
+22
+return
+questions , layouts
+23
+24 # ... Phần đọc JSONL đầy đủđược đính kèm ởPhụlục
+DocumentLayout gộp các block của nhiều trang vào cùng một danh sách nhưng mỗi block vẫn
+giữtrường page. Nhờđó, các solver, tức những hàm thực hiện việc trảlời câu hỏi, có thểlọc
+dữliệu theo trang mà không cần đọc lại file OCR. image_paths chưa được dùng ởcác nhánh
+xửlý text, nhưng sẽđược dùng khi giải câu hỏi Visual Bold Lookup.
+Kết quảcủa bước này là danh sách câu hỏi và ánh xạtừdocument_id đến DocumentLayout.
+Câu hỏi tiếp theo được chuyển thành một yêu cầu có cấu trúc trước khi truy xuất document
+tương ứng.
+3.
+Phân tích câu hỏi thành biểu diễn có cấu trúc (Structured Intent)
+Câu hỏi tựnhiên chứa đồng thời loại phép toán, vịtrí bảng và các điều kiện lọc. Đểcác
+solver không phải tựphân tích lại câu hỏi, hệthống chuẩn hóa các thông tin này thành
+StructuredIntent.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 16
+
+===== PAGE 17 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+1 @dataclass(frozen=True)
+2 class
+StructuredIntent :
+3
+reasoning_type : str
+4
+template: str | None
+5
+fields: dict
+6
+route_source: str
+7
+8
+9 REQUIRED_FIELDS = {
+10
+"lookup": {"table", "page", "target_column", " condition_pairs "},
+11
+"sum": {"table", "page", "target_column", " condition_pairs "},
+12
+"argmax": {"table", "page", "return_column", "value_column"},
+13
+" visual_bold_lookup ": {
+14
+"table", "page", "target_column", " row_condition_groups "
+15
+},
+16
+# ... Danh sách reasoning
+type đầy đủđược đính kèm ởPhụlục
+17 }
+Ví dụ, câu hỏi yêu cầu tính tổng Tuyển mới của hai phòng ban được biểu diễn như sau:
+1 StructuredIntent (
+2
+reasoning_type ="sum",
+3
+template="sum_two_rows",
+4
+fields ={
+5
+"table": 1,
+6
+"page": 1,
+7
+"target_column": "Tuyển mới",
+8
+" condition_pairs ": [
+9
+("Phòng ban", "Kinh
+doanh"),
+10
+("Phòng ban", "Kếtoán"),
+11
+],
+12
+},
+13
+route_source=" strong_template ",
+14 )
+Trong đó, reasoning_type quyết định phép suy luận và fields chứa dữliệu đầu vào cho
+solver. template ghi lại mẫu câu đã khớp, còn route_source cho biết intent được tạo từ
+mẫu câu chắc chắn hay từquy tắc dựphòng. condition_pairs biểu diễn một điều kiện dưới
+dạng (tên cột, giá trị). Với các phép so sánh hai hàng, các điều kiện được tách thành hai
+row_condition_groups riêng biệt.
+3.1 Nhận diện mẫu câu
+Do cách đặt câu hỏi có tính lặp lại cao, hệthống ưu tiên regular expression (regex), tức
+các biểu thức mô tảkhuôn dạng của câu. Một regex vừa kiểm tra câu hỏi có đúng mẫu hay
+không, vừa lấy ra các phần cần thiết như sốbảng, sốtrang và tên cột.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 17
+
+===== PAGE 18 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+1 PATTERN_CATALOG = {
+2
+"argmax": {
+3
+" argmax_standard ": re.compile(
+4
+r"Trong bảng (?P<table >\d+) ởtrang (?P<page >\d+), "
+5
+r"(?P<return_column >.+?) nào có "
+6
+r"(?P<value_column >.+?) lớn nhất\?"
+7
+),
+8
+},
+9
+"count": {
+10
+"count_rows": re.compile(
+11
+r"Có bao nhiêu dòng trong bảng (?P<table >\d+) "
+12
+r"ởtrang (?P<page >\d+) có "
+13
+r"(?P<condition_column >.+?) là “(?P<condition_value >[^”]+)”
+\?"
+14
+),
+15
+},
+16
+# ... Danh sách mẫu câu đầy đủđược đính kèm ởPhụlục
+17 }
+Các nhóm đặt tên như table, page và value_column giúp kết quảregex được chuyển thẳng
+vào fields của intent. Những mẫu cụthểnhư Cross-page Sum và Visual Bold Lookup được
+thửtrước mẫu chung đểtránh chọn nhầm solver Lookup hoặc Sum.
+3.2 Trích xuất điều kiện từcâu hỏi
+Các giá trịdùng đểxác định hàng thường nằm trong dấu ngoặc kép. Hàm dưới đây ghép mỗi
+giá trịvới phần text đứng trước nó đểtạo thành một cặp điều kiện.
+1 def
+parse_condition_pairs (text):
+2
+matches = list(re.finditer(r"“([^”]+)”", text))
+3
+pairs = []
+4
+previous_end = 0
+5
+6
+for match in matches:
+7
+column = text[previous_end:match.start ()]. strip ()
+8
+column = re.sub(r"^(?:và|với)\s+", "", column)
+9
+column = re.sub(r"^(?:dòng (?:\s+có)?|đối\s+với)\s+", "", column
+)
+10
+pairs.append (( column.strip("
+,:.;"), match.group (1)))
+11
+previous_end = match.end()
+12
+13
+return
+pairs
+Chẳng hạn, đoạn Phòng ban “Kếtoán” và Định biên “30” được chuyển thành:
+1 [("Phòng ban", "Kếtoán"), ("Định biên", "30")]
+Nếu câu hỏi một trang không khớp hoàn toàn với mẫu, hệthống có thểnhận diện loại suy luận
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 18
+
+===== PAGE 19 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+qua các dấu hiệu như lớn nhất hoặc có bao nhiêu dòng, rồi lấy từng thông tin cần thiết một
+cách độc lập. Hai dạng phức tạp hơn là Cross-page Sum và Visual Bold Lookup vẫn cần khớp
+mẫu chuyên biệt đểtránh diễn giải sai cấu trúc câu hỏi. Intent chỉđược chuyển cho solver khi
+có đủcác trường được liệt kê trong REQUIRED_FIELDS.
+1 def
+parse_intent(question):
+2
+matched = strong_template_match (question)
+3
+if matched:
+4
+reasoning_type , template , raw_fields = matched
+5
+fields = normalize_fields (reasoning_type , raw_fields)
+6
+return
+StructuredIntent (reasoning_type , template , fields , "
+strong_template ")
+7
+8
+reasoning_type = heuristic_route (question)
+9
+if reasoning_type is None:
+10
+return
+StructuredIntent ("unmatched", None , {}, "none")
+11
+12
+raw_fields = parse_fields_by_type (question , reasoning_type )
+13
+fields = normalize_fields (reasoning_type , raw_fields)
+14
+return
+StructuredIntent (reasoning_type , None , fields , "heuristic")
+15
+16 # ... Các hàm hỗtrợđầy đủđược đính kèm ởPhụlục
+Kết quảcủa bước phân tích câu hỏi là một intent cho biết cần truy cập bảng nào, hàng nào,
+cột nào và thực hiện phép suy luận gì.
+4.
+Xác định vùng bảng và khôi phục cấu trúc không gian
+Sau khi biết trang và sốthứtựbảng, hệthống cần thu hẹp phạm vi OCR trước khi tìm hàng.
+Nếu tìm trên toàn bộtrang, những block có text giống nhau ởhai bảng khác nhau có thểbị
+ghép nhầm.
+4.1 Khoanh vùng bảng
+Tiêu đềbảng thường chứa từBẢNG và có chiều rộng lớn. Hệthống sắp xếp các tiêu đềtheo trục
+Y, sau đó lấy những OCR block nằm giữa tiêu đềcủa bảng hiện tại và bảng kếtiếp.
+1 def
+table_blocks(layout , page , table_index):
+2
+blocks = page_blocks(layout , page)
+3
+titles = sorted(
+4
+[
+5
+block for block in blocks
+6
+if block_width(block) >= 0.65
+7
+and "BẢNG" in str(block["text"]).upper ()
+8
+],
+9
+key=lambda
+block: block["bbox"][1],
+10
+)
+11
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 19
+
+===== PAGE 20 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+12
+if not titles:
+13
+return
+blocks if table_index == 1 else []
+14
+15
+start = titles[table_index - 1]["bbox"][1]
+16
+end = titles[table_index ]["bbox"][1] if table_index < len(titles)
+else 1.0
+17
+return [block for block in blocks if start
+<= center(block)[1] <
+end]
+Ngưỡng 0.65 là một quy tắc kinh nghiệm rút ra từdataset: block tiêu đềchiếm ít nhất 65%
+chiều rộng trang. Đây không phải một mô hình có thểphát hiện mọi dạng bảng. Kết quảcủa
+hàm chỉcòn các OCR block thuộc bảng cần xửlý.
+4.2 Khôi phục cấu trúc hàng và cột
+OCR không cung cấp trực tiếp chỉsốhàng và cột. Hệthống trước tiên nhóm các block có cùng
+vịtrí mép trên y1 đểxác định các hàng vật lý, sau đó sắp xếp block trong mỗi hàng từtrái
+sang phải.
+1 def
+group_rows(blocks):
+2
+grouped = {}
+3
+for block in blocks:
+4
+row_y = round(float(block["bbox"][1]) , 6)
+5
+grouped.setdefault(row_y , []).append(block)
+6
+7
+return [
+8
+sorted(row , key=lambda
+block: center(block)[0])
+9
+for _, row in sorted(grouped.items ())
+10
+]
+Một block đôi khi bao phủnhiều hàng vật lý, thường xuất hiện ởcác ô được gộp theo chiều
+dọc. Vì vậy, mỗi hàng vật lý tiếp tục được biểu diễn bằng một điểm row_y nằm giữa hai đường
+biên của hàng. Tất cảblock có bounding box bao phủđiểm này được ghép thành một hàng
+logic hoàn chỉnh.
+1 def
+logical_row_at (blocks , physical_row):
+2
+row_top = min(block["bbox"][1] for block in physical_row)
+3
+row_bottom = min(
+4
+block["bbox"][3]
+5
+for block in physical_row
+6
+if block["bbox"][3] > row_top
+7
+)
+8
+row_y = (row_top + row_bottom) / 2
+9
+10
+return [
+11
+block for block in blocks
+12
+if block["bbox"][1]
+<= row_y
+<= block["bbox"][3]
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 20
+
+===== PAGE 21 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+13
+]
+Nhờbước này, một ô chung kéo dài qua nhiều dòng có thểxuất hiện trong từng hàng logic mà
+nó đại diện. Cách biểu diễn hàng logic được dùng khi solver cần duyệt hoặc so sánh toàn bộ
+các hàng. Với truy xuất đơn giản, hàng vật lý thường đã đủđểtìm đúng cell.
+Với cột, tâm theo trục X của header được dùng làm mốc. Cell có vùng ngang bao quanh tâm
+header được xem là cell thuộc cột đó.
+1 def
+cell_under(row , header):
+2
+header_x , _ = center(header)
+3
+candidates = [
+4
+cell for cell in row
+5
+if cell["bbox"][0]
+<= header_x
+<= cell["bbox"][2]
+6
+]
+7
+8
+if candidates:
+9
+return min(candidates , key=lambda
+cell: abs(center(cell)[0] -
+header_x))
+10
+return min(row , key=lambda
+cell: abs(center(cell)[0] - header_x))
+if row else None
+Việc chọn cell gần tâm nhất giúp xửlý trường hợp một hàng có nhiều block cùng bao quanh vị
+trí header. Nếu không có block nào bao quanh tâm, hệthống dùng cell gần nhất làm phương
+án dựphòng. Sau bước này, hệthống có thểtruy cập một cell thông qua hàng dữliệu và tên
+cột thay vì chỉlàm việc với danh sách OCR block rời rạc.
+5.
+Truy xuất hàng và ô đích
+Input của bước truy xuất gồm các block trong bảng và condition_pairs lấy từintent. Mục
+tiêu là tìm đúng hàng thỏa tất cảđiều kiện rồi lấy ô đích, tức ô nằm trong cột được câu hỏi
+yêu cầu.
+1 def
+matching_rows(blocks , pairs):
+2
+headers = [header_block(blocks , column) for column , _ in pairs]
+3
+if not pairs or any(header is None for header in headers):
+4
+return []
+5
+6
+matches = []
+7
+for row in data_rows(blocks , headers):
+8
+cells = [cell_under(row , header) for header in headers]
+9
+if all(
+10
+cell is not None and str(cell["text"]) == value
+11
+for cell , (_, value) in zip(cells , pairs)
+12
+):
+13
+matches.append ((row , cells))
+14
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 21
+
+===== PAGE 22 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+15
+return
+matches
+Ví dụ, với hai điều kiện Phòng ban = Kếtoán và Định biên = 30, mỗi hàng được chiếu lên
+hai cột tương ứng rồi so khớp text. Một hàng chỉđược giữlại khi thỏa đồng thời cảhai điều
+kiện.
+1 def
+resolve_target_cell (layout , *, page , table , target_column ,
+condition_pairs ):
+2
+blocks = table_blocks(layout , page , table)
+3
+matches = matching_rows(blocks , condition_pairs )
+4
+target_header = header_block(blocks , target_column)
+5
+6
+if len(matches) != 1 or target_header is None:
+7
+return
+None
+8
+9
+row , condition_cells = matches [0]
+10
+answer_cell = cell_under(row , target_header)
+11
+return
+answer_cell , condition_cells + [answer_cell]
+Hàm chỉtrảkết quảkhi tìm được đúng một hàng, qua đó tránh chọn tùy ý khi điều kiện còn
+mơ hồ. Kết quảgồm ô đích và các block đã dùng đểxác định nó. Các block này đồng thời là
+cơ sởđểtạo evidence.
+Evidence được tạo trực tiếp từcác OCR block đã tham gia truy xuất. Hàm dưới đây loại bỏ
+block trùng nhau và chỉgiữhai trường mà định dạng submission yêu cầu.
+1 def
+build_evidence (blocks):
+2
+evidence , seen = [], set()
+3
+4
+for block in blocks:
+5
+item = (int(block["page"]), tuple(block["bbox"]))
+6
+if item in seen:
+7
+continue
+8
+9
+seen.add(item)
+10
+evidence.append ({"page": item [0], "bbox": list(item [1]) })
+11
+12
+return
+evidence
+Việc giữlại chính các ô điều kiện và ô đích trong suốt pipeline giúp answer và evidence dùng
+chung một nguồn dữliệu, thay vì tìm evidence lại bằng một bước độc lập dễgây lệch kết quả.
+6.
+Thực hiện suy luận trên dữliệu đã truy xuất
+Các solver sửdụng chung kết quảtruy xuất nhưng khác nhau ởphép toán cuối cùng. Tất cả
+đều trảvềcùng một dạng (answer, evidence), vì vậy bước điều phối không cần biết cách
+từng solver xửlý bên trong.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 22
+
+===== PAGE 23 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+6.1 Tra cứu trực tiếp (Lookup)
+Lookup là trường hợp trực tiếp nhất: tìm một hàng rồi đọc text tại giao điểm giữa hàng đó và
+target column.
+1 def
+solve_lookup(fields , layout):
+2
+resolved = resolve_target_cell (layout , ** fields)
+3
+if resolved is None:
+4
+return
+None
+5
+6
+answer_cell , evidence = resolved
+7
+return str(answer_cell["text"]), build_evidence (evidence)
+Answer giữnguyên text OCR, còn evidence gồm các ô điều kiện và ô đáp án. Cặp (answer,
+evidence) này cũng là định dạng đầu ra chung của các solver còn lại.
+6.2 Đếm và tính tổng (Count và Sum)
+Count giữtất cảcác hàng thỏa điều kiện và trảvềsốlượng hàng. Evidence chỉgồm những ô
+điều kiện chứng minh các hàng đã được đếm.
+1 def
+solve_count(fields , layout):
+2
+table , page = fields["table"], fields["page"]
+3
+blocks = table_blocks(layout , page , table)
+4
+matches = matching_rows(blocks , fields[" condition_pairs "])
+5
+evidence = [cell for _, cells in matches
+for cell in cells]
+6
+return str(len(matches)), build_evidence (evidence)
+Sum tách chuỗi điều kiện thành hai nhóm, tìm một hàng cho mỗi nhóm rồi lấy hai ô trong cùng
+cột đích. Nội dung chữtrong ô được chuyển thành sốtrước khi cộng.
+1 def
+solve_sum(fields , layout):
+2
+blocks = table_blocks(layout , fields["page"], fields["table"])
+3
+first_row , second_row = split_two_conditions (
+4
+blocks , fields[" condition_pairs "]
+5
+)
+6
+target_header = header_block(blocks , fields["target_column"])
+7
+8
+first_cell = cell_under(first_row [0], target_header)
+9
+second_cell = cell_under(second_row [0], target_header)
+10
+answer = parse_number(first_cell["text"]) + parse_number(
+second_cell["text"])
+11
+12
+evidence = first_row [1] + second_row [1] + [first_cell , second_cell]
+13
+return
+format_number(answer), build_evidence (evidence)
+14
+15 # ... Phần xửlý đầy đủđược đính kèm ởPhụlục
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 23
+
+===== PAGE 24 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+parse_number() xửlý cách viết sốcó dấu chấm, dấu phẩy hoặc ký hiệu phần trăm, còn
+format_number() đưa kết quảvềđịnh dạng chuỗi dùng trong submission. Evidence được giữ
+từcác OCR block gốc thay vì tạo từgiá trịsốđã chuyển đổi.
+6.3 So sánh hai hàng (Compare)
+Compare nhận hai nhóm điều kiện, truy xuất hai hàng và lấy ô chứa giá trịcần so sánh của
+mỗi hàng. Đối tượng thuộc hàng có giá trịcao hơn được dùng làm answer.
+1 first , second = matched [0][0] ,
+matched [1][0]
+2 first_value_cell = cell_under(first [0], value_header)
+3 second_value_cell = cell_under(second [0], value_header)
+4
+5 first_value = parse_number( first_value_cell ["text"])
+6 second_value = parse_number( second_value_cell ["text"])
+7 winner = first if first_value > second_value
+else
+second
+8
+9 answer_cell = winner [1][0]
+10 evidence = first [1] + second [1] + [first_value_cell , second_value_cell ]
+11 return str(answer_cell["text"]), build_evidence (evidence)
+Mặc dù answer chỉthuộc một hàng, evidence vẫn chứa điều kiện và giá trịcủa cảhai hàng vì
+cảhai đều tham gia phép so sánh.
+6.4 Tìm giá trịcực trị(Argmax và Argmin)
+Argmax và Argmin sửdụng các hàng logic đã được khôi phục ởbước trước, chuyển ô thuộc
+cột cần xếp hạng của từng hàng thành sốrồi dùng max() hoặc min() đểchọn hàng có giá trị
+lớn nhất hoặc nhỏnhất. Đểtạo evidence, hệthống lấy các ô định danh của hàng được chọn
+theo thứtựtừtrái sang phải và dừng ngay khi tập ô đã chọn đủđểphân biệt hàng này với các
+hàng còn lại. Cuối cùng, ô chứa giá trịcực trịđược bổsung vào evidence.
+1 _, return_cell , value_cell , winner_row = select(
+2
+candidates , key=lambda
+item: item [0]
+3 )
+4
+5 value_x , _ = center(value_header)
+6 candidate_rows = [row for _, _, _, row in candidates]
+7 row_prefixes = [
+8
+[cell for cell in row if center(cell)[0] < value_x]
+9
+for row in candidate_rows
+10 ]
+11 identifier_cells = [cell for cell in winner_row if center(cell)[0] <
+value_x]
+12
+13 for size in range(1, len( identifier_cells ) + 1):
+14
+texts = [cell["text"] for cell in identifier_cells [: size ]]
+15
+same_rows = [
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 24
+
+===== PAGE 25 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+16
+prefix for prefix in row_prefixes
+17
+if [cell["text"] for cell in prefix [: size ]] == texts
+18
+]
+19
+if len(same_rows) == 1:
+20
+identifier_cells = identifier_cells [: size]
+21
+break
+22
+23 return str(return_cell["text"]), build_evidence ( identifier_cells + [
+value_cell ])
+Chẳng hạn, nếu ô đầu tiên Kếtoán đã xác định duy nhất hàng thắng thì evidence không cần
+thêm ô định danh khác. Nếu bảng có hai hàng cùng mang tên Kếtoán, hệthống tiếp tục lấy ô
+kếbên, chẳng hạn Định biên = 30, đểphân biệt. Khi đó evidence gồm Kếtoán, 30 và ô giá
+trịcực trị. Cơ chếnày cung cấp đủbằng chứng nhưng tránh đưa toàn bộhàng vào submission.
+7.
+Tính tổng giữa nhiều trang (Cross-page Sum)
+Cross-page Sum không cần một cơ chếtruy xuất mới. Mỗi toán hạng, tức mỗi sốcần cộng,
+được mô tảbằng trang, bảng, cột đích và các điều kiện xác định hàng riêng, sau đó được xửlý
+lại bằng resolve_target_cell().
+1 def
+solve_cross_page_sum (fields , layout):
+2
+operands = fields["operands"]
+3
+resolved = [
+4
+resolve_target_cell (layout , ** operand)
+5
+for
+operand in operands
+6
+]
+7
+8
+cells = [item [0] for item in resolved]
+9
+values = [parse_number(cell["text"]) for cell in cells]
+10
+evidence = [block for _, blocks in resolved
+for block in blocks]
+11
+12
+return
+format_number(sum(values)), build_evidence (evidence)
+Các block vẫn giữsốtrang gốc nên evidence có thểchứa bbox từcảtrang 1 và trang 2. Kết
+quảcủa nhánh này vẫn có cùng dạng với Sum thông thường, nhờđó không cần thay đổi phần
+điều phối phía sau.
+8.
+Nhận diện hàng in đậm từảnh (Visual Bold Lookup)
+Visual Bold Lookup là nhánh duy nhất cần sửdụng ảnh gốc. Tuy nhiên, hệthống không phân
+tích toàn bộtrang bằng mô hình thịgiác. Nội dung OCR và vịtrí trước tiên được dùng để
+thu hẹp phạm vi xuống đúng hai hàng ứng viên. Ảnh chỉđược dùng đểquyết định hàng nào
+in đậm hơn.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 25
+
+===== PAGE 26 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+8.1 Ước lượng độrộng nét chữ
+Độrộng nét (stroke width) mô tảđộdày trung bình của các nét tạo nên ký tự. Với mỗi
+cell, hệthống cắt vùng ảnh theo bbox. Otsu thresholding tựchọn một ngưỡng sáng tối đểtách
+nét chữkhỏi nền giấy. Sau đó, distance transform đo khoảng cách từmỗi điểm bên trong nét
+chữtới biên gần nhất. Khoảng cách trung bình nhân đôi được dùng đểước lượng độdày của
+nét.
+1 def
+cell_stroke_width (cell , image):
+2
+height , width = image.shape
+3
+x1 , y1 , x2 , y2 = cell["bbox"]
+4
+crop = image[
+5
+int(y1 * height):int(y2 * height),
+6
+int(x1 * width):int(x2 * width),
+7
+]
+8
+_, ink = cv2.threshold(
+9
+crop , 0, 255,
+10
+cv2. THRESH_BINARY_INV + cv2.THRESH_OTSU ,
+11
+)
+12
+13
+distance = cv2. distanceTransform (ink , cv2.DIST_L2 , 3)
+14
+return
+float (2 * distance[ink > 0]. mean ())
+15
+16
+17 def
+row_boldness_score (row , image):
+18
+scores = [ cell_stroke_width (cell , image) for cell in row]
+19
+return
+float(np.median ([ score for score in scores if score is not
+None ]))
+20
+21 # ... Phần xửlý ảnh đầy đủđược đính kèm ởPhụlục
+Trung vị(median) được dùng thay cho trung bình đểmột cell bịnhiễu hoặc có đường viền
+dày bất thường không làm lệch điểm của cảhàng. Nếu chênh lệch điểm giữa hai hàng lớn hơn
+VISUAL_SCORE_MARGIN = 0.02, hàng có điểm cao hơn được chọn. Khi hai điểm quá gần nhau,
+hệthống so sánh các cell ởcùng vịtrí của hai hàng. Mỗi cặp bỏmột phiếu cho cell có nét dày
+hơn, rồi hàng nhận nhiều phiếu hơn được chọn.
+8.2 Huấn luyện ResNet18 đểso sánh từng cặp hàng
+Nếu cảđiểm trung vịvà việc bỏphiếu theo cell đều chưa cho kết quảrõ ràng, hai hàng được
+cắt khỏi ảnh và đưa vào ResNet18, một mạng nơ-ron dùng đểtrích xuất đặc trưng hình ảnh.
+Mạng biến mỗi hàng thành một dãy sốmô tảđặc điểm thịgiác, sau đó ghép hai dãy sốđểdự
+đoán hàng thứnhất hay hàng thứhai in đậm hơn.
+Notebook train_bold_pair_colab.ipynb tạo các cặp hàng từTraining set và chia dữliệu
+theo document đểcùng một tài liệu không xuất hiện ởcảtập huấn luyện lẫn tập validation.
+Mô hình sau khi huấn luyện được lưu vào checkpoint bold_pair_resnet18.pt.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 26
+
+===== PAGE 27 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+1 class
+BoldPairResNet18 (nn.Module):
+2
+def
+__init__(self):
+3
+super ().__init__ ()
+4
+backbone = resnet18(weights=None)
+5
+self.encoder = nn.Sequential (* list(backbone.children ())[: -1])
+6
+self.head = nn.Linear (1024 , 2)
+7
+8
+def
+forward(self , first , second):
+9
+first_features = self.encoder(first).flatten (1)
+10
+second_features = self.encoder(second).flatten (1)
+11
+return
+self.head(torch.cat([ first_features , second_features ],
+dim =1))
+12
+13
+14 model = BoldPairResNet18 ().to(DEVICE)
+15 checkpoint = torch.load(CHECKPOINT_PATH , map_location=DEVICE ,
+weights_only=True)
+16 model. load_state_dict (checkpoint["state_dict"])
+17 model.eval ()
+Trong notebook huấn luyện, encoder là phần ResNet18 biến ảnh thành đặc trưng. Encoder
+được khởi tạo từbộtrọng sốđã học trên ImageNet, nhờđó mô hình không phải học đặc trưng
+hình ảnh từđầu. Khi dựđoán, weights=None được dùng lúc tạo kiến trúc vì toàn bộtrọng số
+sẽđược nạp lại từcheckpoint. Hệthống chỉdùng kết quảkhi mô hình gán cho hàng thắng xác
+suất từ0.60 trởlên. Nếu thấp hơn, hai hàng được xem là chưa thểphân biệt đủchắc chắn.
+8.3 Kết hợp các tầng quyết định
+Ba mức được thực hiện từđơn giản đến phức tạp: so sánh trung vịđộrộng nét của cảhàng,
+bỏphiếu giữa các cặp cell, rồi mới dùng ResNet18.
+1 candidate_rows = retrieve_candidate_rows (fields , layout)
+2 row_scores = score_rows(candidate_rows , image)
+3 cell_scores = score_corresponding_cells (candidate_rows , image)
+4
+5 winner = choose_bolder_row (row_scores)
+6 if winner is None:
+7
+winner = choose_bolder_vote (* cell_scores)
+8 if winner is None:
+9
+winner = pairwise_bold_winner (layout , page , candidate_rows )
+10 if winner is None:
+11
+return
+None
+Sau khi có hàng thắng, answer được đọc tại cột đích. Evidence gồm các ô điều kiện của cảhai
+hàng ứng viên và ô đáp án của hàng in đậm, vì cảhai ứng viên đều được dùng trong quá trình
+so sánh.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 27
+
+===== PAGE 28 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+9.
+Điều phối các nhánh suy luận
+Mỗi loại suy luận được nối với một solver tương ứng trong SOLVERS. Vì tất cảsolver đều nhận
+fields cùng DocumentLayout và trảvề(answer, evidence), vòng lặp dựđoán có thểgọi
+chúng theo cùng một cách.
+1 SOLVERS = {
+2
+"lookup": solve_lookup ,
+3
+"count": solve_count ,
+4
+"sum": solve_sum ,
+5
+"argmax": solve_argmax ,
+6
+"argmin": solve_argmin ,
+7
+"compare": solve_compare ,
+8
+" cross_page_sum ": solve_cross_page_sum ,
+9
+" visual_bold_lookup ": solve_visual_bold_lookup ,
+10 }
+11
+12
+13 def solve(intent , layout):
+14
+solver = SOLVERS.get(intent.reasoning_type )
+15
+if solver is None or not
+intent_is_complete (intent):
+16
+return
+None
+17
+return
+solver(intent.fields , layout)
+Pipeline duyệt từng câu hỏi theo quy trình đã xây dựng: tạo intent, lấy DocumentLayout, gọi
+solver rồi ghi question_id, answer và evidence thành một dòng JSON. Nếu intent chưa đủ
+thông tin hoặc không truy xuất được dữliệu, hệthống trảvềkhông xác định cùng evidence
+rỗng thay vì tựđoán. Cuối cùng, notebook đóng gói predictions.jsonl vào file ZIP theo định
+dạng của cuộc thi. Phần code hoàn chỉnh được đính kèm ởPhụlục.
+10.
+Kết quảđánh giá
+Sau khi chạy toàn bộcác cell trong notebook trên Training set, pipeline đạt kết quảnhư sau:
+Training set
+Loại suy luận
+ANLS (%)
+Evidence-
+F1 (%)
+Điểm
+tổng hợp (%)
+Lookup
+100,00
+100,00
+100,00
+Count
+100,00
+100,00
+100,00
+Sum
+100,00
+100,00
+100,00
+Argmax
+90,02
+77,52
+88,14
+Argmin
+89,00
+76,49
+87,12
+Compare
+100,00
+100,00
+100,00
+Cross-page Sum
+100,00
+100,00
+100,00
+Visual Bold Lookup
+96,90
+74,82
+93,59
+Toàn bộTraining set
+96,25
+90,89
+95,45
+Private test
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 28
+
+===== PAGE 29 =====
+AI VIET NAM (AIO2026)
+aivietnam.edu.vn
+Phụlục
+1. Dữliệu: Tải data.zip và giải nén vào DocViVQA/data/.
+2. Code hoàn chỉnh: Repository của tutorial được cung cấp tại đây, bao gồm các notebook
+explore_dataset.ipynb, train_bold_pair_colab.ipynb, submission_pipeline.ip
+ynb và script evaluate_predictions.py dùng đểchấm prediction trên Training set.
+Hình 11: Hình ảnh group facebook AIO Q&A.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 29

@@ -1,0 +1,630 @@
+=== PAGE 1 ===
+Towards Reliable and Interpretable Document Question Answering via VLMs
+Alessio Chen∗, Simone Giovannini∗, Andrea Gemelli+, Fabio Coppini+, Simone Marinai∗
+(∗) Università degli Studi di Firenze, Via di Santa Marta 3, Florence, 50139, Italy
+alessio.chen@edu.unifi.it, simone.giovannini1@unifi.it, simone.marinai@unifi.it
+(+) Letxbe.ai, 229 Rue Saint-Honoré, 75001 Paris, France
+andrea.gemelli@letxbe.ai, fabio.coppini@letxbe.ai
+Abstract
+Vision-Language Models (VLMs) have shown strong
+capabilities in document understanding, particularly in
+identifying and extracting textual information from com-
+plex documents.
+Despite this, accurately localizing an-
+swers within documents remains a major challenge, limit-
+ing both interpretability and real-world applicability. To
+address this, we introduce DocExplainerV0, a plug-and-
+play bounding-box prediction module that decouples an-
+swer generation from spatial localization.
+This design
+makes it applicable to existing VLMs, including propri-
+etary systems where fine-tuning is not feasible. Through
+systematic evaluation, we provide quantitative insights into
+the gap between textual accuracy and spatial grounding,
+showing that correct answers often lack reliable localiza-
+tion. Our standardized framework highlights these short-
+comings and establishes a benchmark for future research
+toward more interpretable and robust document informa-
+tion extraction VLMs.
+1. Introduction
+VLMs are nowadays recognized as the SOTA models for
+most of the multi-modal understanding tasks [2, 6, 36] and
+notably in document (visual) question answering (Docu-
+ment VQA) [13, 14, 19, 30], where the model is prompt
+with the image of a document and a question about it. Re-
+cent generative models often provide correct answers, yet
+they rarely correctly indicate where those answers are lo-
+cated in the document [4, 24, 25]. In other words, while
+textual accuracy is high, spatial grounding remains unreli-
+able. This limitation arises from a fundamental mismatch
+in training objectives: generative VLMs are optimized for
+autoregressive next-token prediction, whereas classical vi-
+sion models rely on explicit spatial supervision, such as
+bounding-box regression [11, 16, 29, 35]. To the authors’
+knowledge, the only prior attempt to analyze spatial ground-
+ing in document VQA is [33]. Beyond that, there is no sys-
+tematic, quantitative evaluation. In this work, we address
+this gap by using the BoundingDocs dataset[8] to provide
+the first comparable and quantitative analysis of the ability
+of VLMs to localize answers within documents.
+Instead of training models to jointly predict answers and
+their positions (as explored in prior works [7, 8, 10, 23, 27]),
+we focus on evaluating existing generative VLMs in scenar-
+ios where training is impractical or impossible, such as with
+proprietary models or very large pre-trained systems. Our
+main contributions are:
+• DocExplainerV0 1:
+A plug-and-play modular archi-
+tecture to spatially ground VLM answers without any
+retraining, enabling existing models to provide inter-
+pretable outputs.
+• Benchmarking and Quantitative Analysis 2: Using the
+BoundingDocs dataset [8], we provide a systematic and
+comparable evaluation of how well VLMs localize an-
+swers within documents.
+• Research Questions: Our work addresses key questions,
+including:
+1. How well do current generative VLMs localize an-
+swers relative to their textual accuracy?
+2. How can modular or hybrid approaches (like decou-
+pling answer generation and localization) address the
+spatial grounding gap?
+3. How can VLM interpretability be quantified for docu-
+ment VQA beyond textual accuracy?
+In Section 2, we review related work on document under-
+standing, spatial grounding, and interpretability in VLMs.
+Section 3 describes our methodology, including model se-
+lection, prompting strategies, and the DocExplainerV0 ar-
+chitecture.
+Section 4 presents the experimental setup,
+dataset details, evaluation metrics and results. Finally, Sec-
+1https://huggingface.co/letxbe/DocExplainer
+2https://github.com/letxbe/research/tree/main/doc-explainer
+arXiv:2509.10129v2  [cs.CL]  15 Sep 2025
+
+=== PAGE 2 ===
+tion 5 concludes the paper and outlines directions for future
+research.
+2. Related Works
+VLMs have become the dominant approach for document
+understanding, often combining OCR-extracted text with
+visual features to answer questions [2, 6, 22, 35]. These
+OCR-based models leverage rich linguistic context, which
+supports strong reasoning abilities, but their reliance on text
+extraction introduces vulnerabilities: misread characters,
+missing text, or layout errors can propagate through the sys-
+tem [28]. OCR-free alternatives process document images
+directly with vision encoders specialized pretraining objec-
+tives [12, 15, 21]. While promising, such models typically
+require task-specific fine-tuning and still struggle to achieve
+strong zero-shot performance. [14, 18, 20, 30, 32].
+Interpretability and spatial grounding have attracted
+growing interest, with methods aiming to highlight rele-
+vant regions, generate attribution maps, or produce visual
+explanations [9, 21, 31]. In document VQA specifically,
+DocVXQA [33] generates heatmaps to indicate ares asso-
+ciated with answers, but these explanations remain qual-
+itative, and no widely accepted metric exists for quanti-
+tative evaluation. Spatial localization techniques fall into
+two broad categories: prompt-based strategies that encode
+positional information without retraining [5, 21, 27], and
+architecture-level methods that integrate layout-aware com-
+ponents for more precise grounding [7, 16]. Prompt-based
+approaches are lightweight but inconsistent, while archi-
+tectural solutions require retraining and higher model com-
+plexity. Despite these efforts, the document understanding
+literature still lacks a standardized, quantitative benchmark
+for evaluating how well VLMs localize answers.
+3. Methods
+3.1. Model choice and Prompting
+We focus our evaluation on three representative families of
+recent VLMs, chosen to cover different scales and design
+philosophies.
+• SmolVLM-2.2B [17]: a lightweight open-source VLM
+(2.2B parameters), optimized for efficiency and small-
+scale deployment. This serves as a lower-bound reference
+for compact models on document VQA.
+• QwenVL2.5-7B [3]:
+a mid-sized open-source model
+that demonstrates strong performance across multimodal
+benchmarks, representing a balance between scalability
+and accessibility for research.
+• Claude Sonnet 4 [1]: a proprietary large-scale model
+with competitive multimodal capabilities.
+Three prompting strategies were tested for all open-source
+VLMs:
+• Zero-shot: The model receives only the question and the
+document image without additional context, as shown in
+the example in Figure 2.
+• Chain-of-Thought (CoT): The zero-shot prompt is ad-
+ditionally enriched with QA pairs, encouraging step-by-
+step reasoning.
+Example:
+Q: "What is the invoice date?"
+A: {"value":"2025-08-19", "position":
+[100, 50, 200, 30]}
+• Anchor-based prompting: The OCR-extracted words
+provided by BoundingDocs are used as anchors to en-
+hance the zero-shot prompt by providing the location of
+words on the page.
+Example:
+The word "Invoice" is at [50,
+20, 80, 20]
+The commercial VLM was evaluated in the zero-shot set-
+ting using the best prompting strategy resulting from the
+previous tests.
+In every case, the VLM is instructed to return prediction
+in a JSON format containing both the answer and its bound-
+ing box, as shown in Figure 2. This enables standardized
+computation for both textual and spatial metrics.
+3.2. DocExplainerV0
+In addition to the prompting strategies, we evaluate a model
+architecture that decouples answer prediction from spatial
+localization. In this setup, a VLM generates the answer text,
+while a dedicated bounding box predictor, built on top of
+the SigLiP2 [34] vision and text backbone, estimates the
+corresponding position within the document.
+The bounding box regressor adopts a dual-branch de-
+sign: visual and textual embeddings from SigLiP2 are first
+projected into a shared latent space and then fused through
+fully connected layers, with a regression head producing
+the final bounding box coordinates: [x1, y1, x2, y2]. During
+training, the SigLiP2 backbone remains frozen, and only
+the bounding box regressor is updated. The model is opti-
+mized using the Smooth L1 loss (Huber loss) on normalized
+bounding box coordinates in [0,1], defined as:
+  L( x, y
+)
+ = \b e gin
+ { ca s es } 0
+.5 (x - y)^
+2 & \text {if } |x-y| < 1, \\ |x-y| - 0.5 & \text {otherwise}. \end {cases} 
+Training is conducted for 20 epochs on the training split
+of BoundingDocs v2.0, using a single NVIDIA L40S-1-
+48G GPU. The final checkpoint is selected based on the
+highest mean IoU score achieved on the validation split.
+An overview of the bounding box predictor architecture is
+shown in Figure 1.
+
+=== PAGE 3 ===
+Figure 1. Architecture of the learned bounding box predictor. Visual and textual embeddings are fused in a shared latent space and passed
+through fully connected layers to produce bounding box coordinates.
+Based only on the document image, answer the following question:
+Question: What is the total amount due?
+Provide ONLY a JSON response in the following format:
+{
+"content": "answer",
+"position": [x, y, w, h]
+}
+Each position value MUST be in the range [0, 1000].
+Figure 2. Zero-shot prompt example used to query the VLMs.
+Architecture
+Prompting
+ANLS
+MeanIoU
+Smol
+Zero-shot
+.527
+.011
+Anchors
+.543
+.026
+CoT
+.561
+.011
+Qwen
+Zero-shot
+.691
+.048
+Anchors
+.694
+.051
+CoT
+.720
+.038
+Claude Sonnet 4
+Zero-shot
+.737
+.031
+Smol + D.E.
+Qwen + D.E.
+Zero-shot
+.572
+.175
+.689
+.188
+Smol + Naive OCR
+Qwen + Naive OCR
+Zero-shot
+.556
+.405
+.690
+.494
+Table 1. Document VQA performance of different models and
+prompting strategies on the BoundingDocs v2.0 dataset.
+Smol
+stands for SmolVLM-2.2B, Qwen stands for Qwen2-VL-7B, and
+D.E. stands for DocExplainerV0. The best value is shown in bold,
+the second-best value is underlined.
+4. Experiments
+4.1. Dataset
+We evaluate on BoundingDocs v2.03, which extends
+BoundingDocs [8].
+The dataset consolidates 11 public
+3https://huggingface.co/datasets/letxbe/BoundingDocs
+sources, including invoices, contracts, forms, receipts, and
+multilingual corpora, into a unified QA format with nor-
+malized bounding boxes for precise answer localization. It
+comprises 48,151 documents (237,437 pages) and 249,016
+question–answer pairs across eight languages, enabling
+evaluation of both answer correctness and spatial ground-
+ing.
+Relative to the initial release [8], v2.0 delivers targeted
+improvements in consistency, linguistic coverage, and data
+quality:
+• Universal Question Rephrasing: Every entry now in-
+cludes a rephrased_question field; for human-
+written questions this field mirrors question to stan-
+dardize the schema.
+• Expanded Multilingual Coverage: XFUND questions
+are rephrased using Claude 3.7 Haiku, improving cross-
+language consistency.
+• Data Alignment Correction:
+A mismatch between
+doc_images and doc_ocr in some MP-DocVQA en-
+tries has been fixed, ensuring image–OCR alignment.
+4.2. Metrics and Evaluation
+We evaluate model performance with two metrics: textual
+accuracy and spatial localization.
+Textual Accuracy.
+We use the Average Normalized Lev-
+enshtein Similarity (ANLS) [26], which measures the
+normalized Levenshtein distance between predicted and
+ground-truth answers. ANLS is computed for each QA pair
+and then averaged over all samples in the test set. It ranges
+from 0 (no overlap) to 1 (exact match), and is tolerant to
+minor spelling or formatting variations.
+Spatial Localization.
+To evaluate localization, we com-
+pute the standard Intersection over Union (IoU) value be-
+tween predicted bounding boxes Bpred and reference boxes
+
+=== PAGE 4 ===
+Q: "What is the department
+of Dr. Robert?"
+A: "Department of Preventive Medicine"
+Q: "What is the name
+of the seller?"
+A: "Bailey Group"
+Q: "What is the date
+voucher prepared?"
+A: "June 30, 1966"
+Figure 3. Example document images from BoundingDocs with predicted bounding boxes overlaid. The bounding box colors indicate:
+Ground truth,
+DocExplainer,
+CoT prompting,
+Zero-shot prompting,
+Anchor-based prompting. The bounding boxes from
+prompting-based methods are all far from the ground truth, while the only one close to it is DocExplainer.
+Bgt areas:
+  \ t ext {I o U} =
+ \frac {|B_\text {pred} \cap B_\text {gt}|}{|B_\text {pred} \cup B_\text {gt}|}. 
+The MeanIoU is obtained by averaging the IoU scores
+across all QA pairs in the test set, providing a single mea-
+sure of spatial accuracy.
+4.3. Naive OCR-based Baseline
+As a baseline for answer localization, we implement a sim-
+ple OCR-based method. Specifically, we query the VLM
+for an answer and then search for this predicted value within
+the OCR text extracted from the document (provided by the
+BoundingDocs dataset). When a match is found, the corre-
+sponding bounding box in the page is returned as the pre-
+dicted location. If the complete answer cannot be matched
+in the OCR text, we instead use the first word of the VLM’s
+answer to perform the same procedure.
+4.4. Results
+The results of our experiments are presented quantitatively
+in Table 1 and qualitatively in Figure 3.
+We can notice
+that VLMs are unable to provide the position of the value
+extracted from the document, and return completely incor-
+rect bounding boxes, as demonstrated by the IoU values.
+Among the various prompting settings, "Anchors" is the one
+that most helps VLMs on this task, but without bringing sig-
+nificant advantages, while still compromising ANLS values,
+whose highest scores are achieved in the "CoT" setting.
+The use of DocExplainer instead significantly improves
+the MeanIoU values of both models, demonstrating the ef-
+fectiveness of the proposed architecture. It is nonetheless
+fundamental to emphasize that DocExplainer’s results are
+still very far from the OCR-based baseline (approximately
+three times less effective). This is also due to the type of
+data used, since in BoundingDocs the answers always have
+an exact match in the document and therefore OCR search
+performs well. However, our objective is to propose an ar-
+chitecture that finds the relevant area in the document even
+for questions whose answer is not explicitly in the text, a
+case in which the OCR baseline would obviously fail.
+5. Conclusion
+In this work we investigate the spatial grounding capabili-
+ties of VLMs (both open and closed weights) for document
+understanding and compare it with an OCR-based method.
+Rather than providing a complete solution, our goal was
+to establish a benchmark for future research and highlight
+the challenges inherent in document-level spatial reasoning.
+Importantly, this study represents one of the first attempts
+to provide quantitative interpretability in document VQA
+by evaluating not only the correctness of answers but also
+their spatial grounding. Using the BoundingDocs dataset,
+we restricted our analysis to questions where the answer can
+be clearly localized within a single bounding box, exclud-
+ing cases that require reasoning over multiple elements or
+regions. While naive OCR-based methods provide a use-
+ful upper bound for spatial grounding, they also highlight a
+limitation of the dataset: many answers are not fully cap-
+tured by OCR, and multiple regions may contribute to un-
+derstanding a given answer, which cannot be properly eval-
+uated under current single-box annotations.
+
+=== PAGE 5 ===
+Acknowledgments
+We thank the CAI4DSA actions (Collaborative Explainable neuro-
+symbolic AI for Decision Support Assistant) of the FAIR national
+project on artificial intelligence, PE1 PNRR (https://fondazione-
+fair.it/).
+References
+[1] Anthropic.
+Claude Sonnet 4 System Card:
+Anthropic
+Opus 4
+Sonnet 4.
+https://www- cdn.anthropic.com/
+4263b940cabb546aa0e3283f35b686f4f3b2ff47 . pdf,
+2025.
+Accessed: 2025-08-22. 2
+[2] Srikar Appalaraju, Peng Tang, Qi Dong, Nishant Sankaran,
+Yichu Zhou, and R. Manmatha. Docformerv2: Local fea-
+tures for document understanding. In Thirty-Eighth AAAI
+Conference on Artificial Intelligence, AAAI 2024, Thirty-
+Sixth Conference on Innovative Applications of Artificial
+Intelligence, IAAI 2024, Fourteenth Symposium on Educa-
+tional Advances in Artificial Intelligence, EAAI 2014, Febru-
+ary 20-27, 2024, Vancouver, Canada, pages 709–718. AAAI
+Press, 2024. 1, 2
+[3] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin
+Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun
+Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhao-
+hai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu,
+Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng,
+Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang Lin.
+Qwen2.5-vl technical report, 2025. 2
+[4] Aritra Bhowmik, Mohammad Mahdi Derakhshani, Den-
+nis C. Koelma, Martin R. Oswald, Yuki M. Asano, and Cees
+G. M. Snoek. Learning to ground vlms without forgetting.
+CoRR, abs/2410.10491, 2024. 1
+[5] Amaia Cardiel, Eloi Zablocki, Elias Ramzi, Oriane Siméoni,
+and Matthieu Cord.
+LLM-wrapper: Black-box semantic-
+aware adaptation of vision-language models for referring ex-
+pression comprehension.
+In The Thirteenth International
+Conference on Learning Representations, 2025. 2
+[6] Matt Deitke, Christopher Clark, Sangho Lee, Rohun Tri-
+pathi, Yue Yang, Jae Sung Park, Mohammadreza Salehi,
+Niklas Muennighoff, Kyle Lo, Luca Soldaini, Jiasen Lu,
+Taira Anderson, Erin Bransom, Kiana Ehsani, Huong Ngo,
+Yen-Sung Chen, Ajay Patel, Mark Yatskar, Chris Callison-
+Burch, Andrew Head, Rose Hendrix, Favyen Bastani, Eli
+VanderBilt, Nathan Lambert, Yvonne Chou, Arnavi Chheda,
+Jenna Sparks, Sam Skjonsberg, Michael Schmitz, Aaron
+Sarnat, Byron Bischoff, Pete Walsh, Chris Newell, Piper
+Wolters, Tanmay Gupta, Kuo-Hao Zeng, Jon Borchardt,
+Dirk Groeneveld, Crystal Nam, Sophie Lebrecht, Caitlin
+Wittlif, Carissa Schoenick, Oscar Michel, Ranjay Krishna,
+Luca Weihs, Noah A. Smith, Hannaneh Hajishirzi, Ross B.
+Girshick, Ali Farhadi, and Aniruddha Kembhavi.
+Molmo
+and pixmo: Open weights and open data for state-of-the-
+art vision-language models.
+In IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, CVPR 2025,
+Nashville, TN, USA, June 11-15, 2025, pages 91–104. Com-
+puter Vision Foundation / IEEE, 2025. 1, 2
+[7] Michael Dorkenwald, Nimrod Barazani, Cees G. M. Snoek,
+and Yuki M. Asano.
+PIN: positional insert unlocks ob-
+ject localisation abilities in vlms. In IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, CVPR 2024,
+Seattle, WA, USA, June 16-22, 2024, pages 13548–13558.
+IEEE, 2024. 1, 2
+[8] S. Giovannini, F. Coppini, A. Gemelli, and S. Marinai.
+Boundingdocs: a unified dataset for document question an-
+swering with spatial annotations, 2025.
+arXiv preprint
+arXiv:2501.03403. 1, 3
+[9] Roni Goldshmidt.
+Attention, please!
+pixelshap reveals
+what vision-language models actually focus on, 2025. arXiv
+preprint arXiv:2503.06670. 2
+[10] Y. Huang, T. Lv, L. Cui, Y. Lu, and F. Wei. Layoutlmv3: pre-
+training for document ai with unified text and image mask-
+ing, 2022. 1
+[11] Qirui Jiao, Daoyuan Chen, Yilun Huang, Yaliang Li, and
+Ying Shen. From training-free to adaptive: Empirical in-
+sights into MLLMs’ understanding of detection information,
+2025. 1
+[12] Geewook Kim, Teakgyu Hong, Moonbin Yim, JeongYeon
+Nam, Jinyoung Park, Jinyeong Yim, Wonseok Hwang, Sang-
+doo Yun, Dongyoon Han, and Seunghyun Park.
+Ocr-free
+document understanding transformer. In Computer Vision -
+ECCV 2022 - 17th European Conference, Tel Aviv, Israel,
+October 23-27, 2022, Proceedings, Part XXVIII, pages 498–
+517. Springer, 2022. 2
+[13] Jordy Van Landeghem, Rafal Powalski, Rubèn Tito, Dawid
+Jurkiewicz, Matthew B. Blaschko, Lukasz Borchmann,
+Mickaël Coustaty, Sien Moens, Michal Pietruszka, Bertrand
+Anckaert, Tomasz Stanislawek, Pawel Józiak, and Ernest
+Valveny.
+Document understanding dataset and evaluation
+(DUDE). In IEEE/CVF International Conference on Com-
+puter Vision, ICCV 2023, Paris, France, October 1-6, 2023,
+pages 19471–19483. IEEE, 2023. 1
+[14] Hugo Laurençon, Andrés Marafioti, Victor Sanh, and Léo
+Tronchon.
+Building and better understanding vision-
+language models: insights and future directions.
+CoRR,
+abs/2408.12637, 2024. 1, 2
+[15] Kenton Lee, Mandar Joshi, Iulia Raluca Turc, Hexiang Hu,
+Fangyu Liu, Julian Martin Eisenschlos, Urvashi Khandel-
+wal, Peter Shaw, Ming-Wei Chang, and Kristina Toutanova.
+Pix2Struct: Screenshot parsing as pretraining for visual lan-
+guage understanding.
+In Proceedings of the 40th Inter-
+national Conference on Machine Learning, pages 18893–
+18912. PMLR, 2023. 2
+[16] J. Lu, H. Yu, Y. Wang, Y. Ye, J. Tang, Z. Yang, B. Wu, Q.
+Liu, H. Feng, H. Wang, H. Liu, and C. Huang. A bounding
+box is worth one token: interleaving layout and text in a large
+language model for document understanding, 2024. 1, 2
+[17] Andrés Marafioti, Orr Zohar, Miquel Farré, Merve Noyan,
+Elie Bakouch, Pedro Cuenca, Cyril Zakka, Loubna Ben
+Allal, Anton Lozhkov, Nouamane Tazi, Vaibhav Srivastav,
+Joshua Lochner, Hugo Larcher, Mathieu Morlon, Lewis Tun-
+stall, Leandro von Werra, and Thomas Wolf.
+Smolvlm:
+Redefining small and efficient multimodal models. CoRR,
+abs/2504.05299, 2025. 2
+[18] Ahmed Masry, Do Xuan Long, Jia Qing Tan, Shafiq Joty,
+and Enamul Hoque. ChartQA: A benchmark for question
+
+=== PAGE 6 ===
+answering about charts with visual and logical reasoning. In
+Findings of the Association for Computational Linguistics:
+ACL 2022, pages 2263–2279, Dublin, Ireland, 2022. Associ-
+ation for Computational Linguistics. 2
+[19] Minesh Mathew, Dimosthenis Karatzas, and C.V. Jawahar.
+Docvqa: A dataset for vqa on document images. In Proceed-
+ings of the IEEE/CVF Winter Conference on Applications of
+Computer Vision (WACV), pages 2200–2209, 2021. 1
+[20] Minesh Mathew, Dimosthenis Karatzas, and C. V. Jawa-
+har. Docvqa: A dataset for VQA on document images. In
+IEEE Winter Conference on Applications of Computer Vi-
+sion, WACV 2021, Waikoloa, HI, USA, January 3-8, 2021,
+pages 2199–2208. IEEE, 2021. 2
+[21] Ahmad Mohammadshirazi, Pinaki Prasad Guha Neogi, Ser-
+Nam Lim, and Rajiv Ramnath.
+Dlava: Document lan-
+guage and vision assistant for answer localization with en-
+hanced interpretability and trustworthiness. arXiv preprint
+arXiv:2412.00151, 2024. 2
+[22] Mor Shpigel Nacson, Aviad Aberdam, Roy Ganz, Elad
+Ben Avraham, Alona Golts, Yair Kittenplon, Shai Mazor,
+and Ron Litman.
+Docvlm: Make your vlm an efficient
+reader. In Proceedings of the Computer Vision and Pattern
+Recognition Conference, pages 29005–29015, 2025. 2
+[23] Ahmed
+Nassar,
+Andrés
+Marafioti,
+Matteo
+Omenetti,
+Maksym Lysak, Nikolaos Livathinos, Christoph Auer, Lu-
+cas Morin, Rafael Teixeira de Lima, Yusik Kim, A. Said
+Gurbuz, Michele Dolfi, Miquel Farré, and Peter W. J.
+Staar.
+Smoldocling:
+An ultra-compact vision-language
+model for end-to-end multi-modal document conversion.
+CoRR, abs/2503.11576, 2025. 1
+[24] Armineh Nourbakhsh, Sameena Shah, and Carolyn Rose.
+Towards a new research agenda for multimodal enterprise
+document understanding: What are we missing? In Findings
+of the Association for Computational Linguistics: ACL 2024,
+pages 14610–14622, Bangkok, Thailand, 2024. Association
+for Computational Linguistics. 1
+[25] Armineh Nourbakhsh, Siddharth Parekh, Pranav Shetty,
+Zhao Jin, Sameena Shah, and Carolyn P. Rosé. Where is this
+coming from? making groundedness count in the evaluation
+of document VQA models. In Findings of the Association
+for Computational Linguistics: NAACL 2025, Albuquerque,
+New Mexico, USA, April 29 - May 4, 2025, pages 5326–
+5346. Association for Computational Linguistics, 2025. 1
+[26] David
+Peer,
+Philemon
+Schöpf,
+Volckmar
+Nebendahl,
+Alexander Rietzler, and Sebastian Stabinger. Anls* - A uni-
+versal document processing metric for generative large lan-
+guage models. CoRR, abs/2402.03848, 2024. 3
+[27] Vincent Perot, Kai Kang, Florian Luisier, Guolong Su,
+Xiaoyu Sun, Ramya Sree Boppana, Zilong Wang, Zifeng
+Wang, Jiaqi Mu, Hao Zhang, Chen-Yu Lee, and Nan Hua.
+LMDX: language model-based document information ex-
+traction and localization.
+In Findings of the Association
+for Computational Linguistics, ACL 2024, Bangkok, Thai-
+land and virtual meeting, August 11-16, 2024, pages 15140–
+15168. Association for Computational Linguistics, 2024. 1,
+2
+[28] Bhawna Piryani, Jamshid Mozafari, Abdelrahman Abdallah,
+Antoine Doucet, and Adam Jatowt. Evaluating robustness
+of llms in question answering on multilingual noisy ocr data,
+2025. 2
+[29] Rahul Ramachandran, Ali Garjani, Roman Bachmann, An-
+drei Atanov, Oguzhan Fatih Kar, and Amir Zamir. How well
+does gpt-4o understand vision? evaluating multimodal foun-
+dation models on standard computer vision tasks.
+CoRR,
+abs/2507.01955, 2025. 1
+[30] Juan A. Rodríguez, Xiangru Jian, Siba Smarak Panigrahi,
+Tianyu Zhang, Aarash Feizi, Abhay Puri, Akshay Kalkunte
+Suresh, François Savard, Ahmed Masry, Shravan Nayak, Ra-
+biul Awal, Mahsa Massoud, Amirhossein Abaskohi, Zichao
+Li, Suyuchen Wang, Pierre-André Noël, Mats Leon Richter,
+Saverio Vadacchino, Shubham Agarwal, Sanket Biswas, and
+et al. Bigdocs: An open dataset for training multimodal mod-
+els on document and code tasks. In The Thirteenth Interna-
+tional Conference on Learning Representations, ICLR 2025,
+Singapore, April 24-28, 2025. OpenReview.net, 2025. 1, 2
+[31] Saifullah Saifullah, Stefan Agne, Andreas Dengel, and
+Sheraz Ahmed. Docxplain: A novel model-agnostic explain-
+ability method for document image classification. In Docu-
+ment Analysis and Recognition - ICDAR 2024, pages 103–
+123, Cham, 2024. Springer Nature Switzerland. 2
+[32] Amanpreet Singh, Vivek Natarajan, Meet Shah, Yu Jiang,
+Xinlei Chen, Dhruv Batra, Devi Parikh, and Marcus
+Rohrbach. Towards VQA models that can read. In IEEE
+Conference on Computer Vision and Pattern Recognition,
+CVPR 2019, Long Beach, CA, USA, June 16-20, 2019, pages
+8317–8326. Computer Vision Foundation / IEEE, 2019. 2
+[33] Mohamed Ali Souibgui, Changkyu Choi, Andrey Barsky,
+Kangsoo Jung, Ernest Valveny, and Dimosthenis Karatzas.
+DocVXQA: Context-aware visual explanations for docu-
+ment question answering.
+In Forty-second International
+Conference on Machine Learning, 2025. 1, 2
+[34] Michael Tschannen, Alexey A. Gritsenko, Xiao Wang,
+Muhammad Ferjad Naeem, Ibrahim Alabdulmohsin, Nikhil
+Parthasarathy, Talfan Evans, Lucas Beyer, Ye Xia, Basil
+Mustafa, Olivier J. Hénaff, Jeremiah Harmsen, Andreas
+Steiner, and Xiaohua Zhai. Siglip 2: Multilingual vision-
+language encoders with improved semantic understanding,
+localization, and dense features.
+CoRR, abs/2502.14786,
+2025. 2
+[35] D. Wang, N. Raman, M. Sibue, Z. Ma, P. Babkin, S. Kaur,
+Y. Pei, A. Nourbakhsh, and X. Liu. Docllm: a layout-aware
+generative language model for multimodal document under-
+standing. In Proceedings of the 62nd Annual Meeting of the
+Association for Computational Linguistics (Volume 1: Long
+Papers), pages 8529–8548, Bangkok, Thailand, 2024. Asso-
+ciation for Computational Linguistics. 1, 2
+[36] Jingyi Zhang, Jiaxing Huang, Sheng Jin, and Shijian Lu.
+Vision-language models for vision tasks: A survey. CoRR,
+abs/2304.00685, 2023. 1

@@ -1,0 +1,290 @@
+===== PAGE 12 =====
+Table 6: Performance Comparison on Referring Expression Comprehension Task.
+Type
+Model
+RefCOCO
+RefCOCO+
+RefCOCOg
+val
+test-A
+test-B
+val
+test-A
+test-B
+val
+test
+Generalist
+OFA-L (Wang et al., 2022)
+80.0
+83.7
+76.4
+68.3
+76.0
+61.8
+67.6
+67.6
+Shikra (Chen et al., 2023a)
+87.0
+90.6
+80.2
+81.6
+87.4
+72.1
+82.3
+82.2
+Qwen-VL (Bai et al., 2023b)
+89.4
+92.3
+85.3
+83.1
+88.3
+77.2
+85.6
+85.5
+Ferretv2 (Zhang et al., 2024a)
+92.6
+95.0
+88.9
+87.4
+92.1
+81.4
+89.4
+90.0
+CogVLM (Wang et al., 2023b)
+92.8
+94.8
+89.0
+88.7
+92.9
+83.4
+89.8
+90.8
+InternVL22b (Chen et al., 2024c)
+82.3
+88.2
+75.9
+73.5
+82.8
+63.3
+77.6
+78.3
+InternVL28b (Chen et al., 2024c)
+87.1
+91.1
+80.7
+79.8
+87.9
+71.4
+82.7
+82.7
+InternVL276b (Chen et al., 2024c)
+92.2
+94.8
+88.4
+88.8
+93.1
+82.8
+89.5
+90.3
+Qwen2-VL2b
+87.6
+90.6
+82.3
+79.0
+84.9
+71.0
+81.2
+80.3
+Qwen2-VL7b
+91.7
+93.6
+87.3
+85.8
+90.5
+79.5
+87.3
+87.8
+Qwen2-VL72b
+93.2
+95.3
+90.7
+90.1
+93.8
+85.6
+89.9
+90.4
+Specialist
+G-DINO-L (Liu et al., 2023c)
+90.6
+93.2
+88.2
+82.8
+89.0
+75.9
+86.1
+87.0
+UNINEXT-H (Yan et al., 2023)
+92.6
+94.3
+91.5
+85.2
+89.6
+79.8
+88.7
+89.4
+ONE-PEACE (Wang et al., 2023a)
+92.6
+94.2
+89.3
+88.8
+92.2
+83.2
+89.2
+89.3
+video understanding tasks, and scaling up Qwen2-VL yields significant improvements. For the challenging
+Video-MME benchmark (Fu et al., 2024), which includes videos up to one hour, it is noteworthy that we
+limited the maximum number of frames extracted per video to 768 during evaluation, potentially impacting
+performance on longer videos. Future work will focus on extending Qwen2-VL to support longer sequences,
+thereby accommodating longer videos.
+3.2.7
+Visual Agent
+Qwen2-VL is evaluated first for its ability to interact with the environment via function calls and then for
+its capacity to complete complex sequential decision tasks through multiple rounds of interaction. The
+implementation is based on the Qwen-Agent framework (Qwen Team, 2024).
+Function Calling
+Unlike function calling in LLMs (Yan et al., 2024; Srinivasan et al., 2023; Chen et al.,
+2023c), function calling in LVLMs often involves extracting information from visual cues. Due to the absence
+of public benchmarks for evaluating the capabilities of LVLMs in function calling, we constructed our internal
+evaluation dataset.
+To construct the evaluation dataset, we undertook the following procedures (Chen et al., 2023c): Scene
+Categorization, Image Collection, Image Content Extraction, and Question/Functions/Arguments Gen-
+eration. Firstly, we classified scenes into categories based on different visual applications. Subsequently,
+we downloaded and meticulously selected high-quality, representative images from the internet for each
+category. Thereafter, utilizing an advanced LVLM (Bai et al., 2023b), we analyzed each image to extract key
+visual elements and textual information. Finally, based on the content information from the images, we used
+an advanced LLM (Yang et al., 2024) to generate a series of questions that required specific functions to
+answer, along with specifying the input parameters needed for these function calls.
+Similar to the function calling evaluation method in LLMs (Yan et al., 2024), we designed two metrics to
+evaluate the accuracy of the function selection and the correctness of the arguments input. Specifically, Type
+Match(TM), is calculated as the ratio of times the model successfully invoked the correct function to the total
+number of calls attempted. Exact Match(EM), for each function calling, we checked whether the arguments
+passed to the function exactly matched those recorded in the image’s content information, calculating this
+correctness ratio.
+As shown in Table 5, the performance of Qwen2-VL in both Type Match(93.1 vs. 90.2) and Exact Match(53.2 vs.
+50.0) over GPT-4o substantiates the efficacy of Qwen2-VL’s capability in function calling, thereby underscoring
+12
+===== PAGE 13 =====
+its significant potential for application expansion through external tool integration.
+The evaluation results demonstrated that GPT-4o underperformed, primarily due to two factors: in scenarios
+where uncertainty arises, GPT-4o demonstrates a conservative approach by avoiding using external tools.
+The Optical Character Recognition (OCR) capability of GPT-4o is outperformed by Qwen2-VL, particularly
+in the context of Chinese characters.
+UI Operations/Games/Robotics/Navigation
+To assess Qwen2-VL’s ability to generally handle complex
+tasks, we conduct evaluations across multiple VL agent tasks, including mobile operations (Zhang et al.,
+2024b; Rawles et al., 2024b; Lu et al., 2024b; Rawles et al., 2024a), robotic control (Kolve et al., 2017; Shridhar
+et al., 2020a; Inoue and Ohashi, 2022; Lu et al., 2023; Jiang et al., 2022; Huang et al., 2023b), card games (Zhai
+et al., 2024), and vision-language navigation (Anderson et al., 2018; Qi et al., 2020). As these tasks need
+multiple actions to complete tasks, we keep the history (observation, action) through Qwen2-VL supports
+a 32K context length, then append each new observation image after every action, enabling continuous
+reasoning about subsequent steps.
+UI Operations: we evaluate Qwen2-VL using the AITZ task (Zhang et al., 2024b), which constructs a core
+clean test set derived from AITW (Rawles et al., 2024b). Based on common operation patterns of phone, we
+define actions such as tap, input and swipe (Rawles et al., 2024b) for Qwen2-VL to interact with on-screen
+icons for task completion. For example, when Qwen2-VL is tasked with finding a pizza restaurant nearby by
+Google Maps, it should input "pizza" in the search term, swipe to select the appropriate restaurant, and tap
+the corresponding link. Following the AITZ setting, we report both type match (correctness of tap, input, or
+swipe) and exact match (correctness of tap location, input text, or swipe direction). With the support of
+grounding capability on UI, Qwen2-VL surpasses GPT-4 and previous SoTA (Zhang et al., 2024b; Zhan and
+Zhang, 2023).
+Robotic Control: we evaluate Qwen2-VL on the ALFRED task (Shridhar et al., 2020a) in AI2THOR (Kolve
+et al., 2017). The task requires agent to perform complex household tasks, such as toasting bread and slicing
+an apple to prepare a meal. To work in the virtual environment, we define high-level actions (GotoLocation,
+Pickup, PutDown, Open, Close, Clean, Heat, Cool, Slice) (Shridhar et al., 2020b) as the action set. Moreover,
+agent needs to localize objects for manipulation (e.g., it can only pick up an apple if the apple is recognized).
+To improve the accuracy of manipulation, we integrate SAM (Kirillov et al., 2023). ALFRED task reports
+task success rate (SR) (e.g., preparing dinner) and sub-goal completion metrics (GC) (e.g., whether the
+bread is toasted or the apple is sliced). Qwen2-VL slightly outperforms the previously specialized model
+ThinkBot (Lu et al., 2023) on the valid-unseen set.
+Card Games: we leverage the card game environment from RL4VLM (Zhai et al., 2024) to assess Qwen2-VL’s
+performance in a series of card-based games: Number Line, BlackJack, EZPoint, and Point24. Each game
+presents distinct challenges: (1) reaching a target number using +1 or -1 operations, (2) drawing or holding
+cards to compete against the dealer, (3) applying basic arithmetic operations to reach a total of 12, and (4)
+using arithmetic operations to achieve a total of 24. We report the success rate of the tasks. They not only
+evaluate agent capabilities but also require strong OCR skills to recognize these cards and understand the
+progression of the game. Qwen2-VL demonstrates superior performance across all tasks.
+Vision-Language Navigation: we evaluate Qwen2-VL on the Vision-and-Language Navigation (VLN) task
+using the R2R (Anderson et al., 2018) and REVERIE (Qi et al., 2020). In VLN, the model must autonomously
+determine the next location based on instruction, current observations. We report the success rate (SR) of
+VLM in reaching the predetermined destination for this task. The performance of Qwen2-VL is comparable
+to that of GPT-4o, but both models fall significantly behind current specialized VLN models (Chen et al.,
+2022; Sigurdsson et al., 2023). We attribute this gap to the incomplete and unstructured map information
+generated by the model from multiple images. Accurately modeling maps and locations in a 3D environment
+remains a major challenge for multimodal models.
+13
+===== PAGE 14 =====
+Table 7: Qwen2-VL-7B under fixed/dynamic image tokens. Adjusting image sizes only results in small
+perturbations in performance, demonstrating the robustness to varying image sizes. Moreover, the dynamic
+resolution strategy achieves top-tier performance while consuming fewer tokens on average, demonstrating
+the efficiency of our model.
+Strategy
+Average Image Tokens
+InfoVQAval
+RealWorldQA
+OCRBench
+MMMU
+Fixed Image Tokens
+64
+28.85
+56.47
+572
+53.33
+576
+65.72
+65.88
+828
+52.78
+1600
+74.99
+69.54
+824
+52.89
+3136
+77.27
+70.59
+786
+53.44
+Dynamic Image Tokens
+1924
+75.89
+70.07
+866
+53.44
+Figure 4: Qwen2-VL-7B with different min_pixels. Small images are upscaled to surpass a specified min_pixels
+threshold before input into the model. Increasing the image size within a reasonable range shows enhanced
+performance on perceptual tasks like InfoVQA, HallusionBench, and OCRBench.
+3.3
+Ablation Study
+In this section, we present ablation studies on image dynamic resolution, M-RoPE, and model scale. These
+experiments aim to provide insights into the impact of these key components on our model’s performance.
+3.3.1
+Dynamic Resolution
+As shown in Table 7, we compare the performance between dynamic resolution and fixed resolution. For
+fixed resolution, we resize the images to ensure a constant number of image tokens being input to the model,
+rather than resizing to a specific height and width, as this would distort the original aspect ratio. For dynamic
+resolution, we only set min_pixels= 100 × 28 × 28 and max_pixels= 16384 × 28 × 28, allowing the number
+of image tokens depend primarily on the image’s native resolution. It can be observed that adjusting image
+sizes only results in small perturbations in performance, demonstrating the model robustness to varying
+image sizes. Moreover, dynamic resolution approach is more efficient. We can observe that no single fixed
+resolution achieves optimal performance across all benchmarks. In contrast, the dynamic resolution approach
+consistently achieves top-tier performance while consuming fewer tokens on average.
+Additionally, we observe that merely increasing the image size does not always lead to improved performance.
+It is more important to choose an appropriate resolution for different images. As detailed in Figure 4, we
+upscale small images to surpass a specified min_pixels threshold. Evaluations on upscaled images shows
+enhanced performance on perceptual tasks like InfoVQA, HallusionBench, and OCRBench. We attribute
+these gains to increased computational load. However, for OCRBench, a too-high min_pixels value leads to a
+severe performance decline. This is likely because OCRBench contains numerous extremely small images,
+and excessive enlargement causes these images to deviate from the training data distribution, turning them
+into out-of-distribution samples. In contrast, the effect of increasing min_pixels on the MMMU benchmark
+is negligible. We hypothesize that the performance bottleneck in MMMU is more related to the model’s
+14

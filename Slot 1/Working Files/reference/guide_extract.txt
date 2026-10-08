@@ -1,0 +1,280 @@
+===== PAGE 1 =====
+Topic Team AIO2026
+AIVN
+Hướng dẫn thực hiện Topic Team
+I.
+Giới thiệu
+Topic Team là hoạt động khuyến khích các bạn áp dụng kiến thức trong từng Module của
+AIO2026 đểphát triển thành project, bài thửnghiệm, ứng dụng hoặc hướng nghiên cứu cụthể.
+Mỗi nhóm lựa chọn một subtopic, củng cốkiến thức nền tảng, tìm hiểu thêm các paper liên
+quan và xác định một output rõ ràng đểphát triển trong quá trình tham gia.
+Output có thểlà một sản phẩm ứng dụng, bài thửnghiệm, một hướng cải tiến hoặc một ý
+tưởng nghiên cứu. Nếu kết quảcó tiềm năng, Ad sẽkết nối nhóm với TA phù hợp đểtiếp tục
+góp ý, hoàn thiện và phát triển sâu hơn.
+Các topic hiện tại
+Deep Learning
+Pandas
+Linear Regression (L1, L2, Huber Loss)
+Logistic Regression
+Softmax Regression
+PyTorch for Regression & Classification
+Multilayer Perceptron
+Data Cleaning & Transformation with
+Pandas
+Data Visualization with Plotly
+SQL →Pandas →Dashboard
+Data Engineer
+Olympic AI
+Data Sources & Data Ingestion using
+PySpark
+Data Warehouse with Snowflake & Data
+Processing using PySpark
+Data Pipeline with Dagster & dbt
+AI LÀ AI
+Trích xuất bảng từảnh tài liệu
+Hỏi đáp trên ảnh tài liệu
+Kẻmạo danh
+DLinear & NLinear
+Gradient Vanishing
+DLinear
+NLinear
+So sánh DLinear & NLinear trong bài toán
+Forecasting
+Nguyên nhân và cơ chếGradient Vanishing
+Ảnh hưởng của Gradient Vanishing trong
+Deep Neural Networks
+Các giải pháp khắc phục Gradient
+Vanishing
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 1
+
+===== PAGE 2 =====
+Mục lục
+I.
+Giới thiệu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+1
+II.
+Quy trình thực hiện . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+II.1
+Học và củng cốkiến thức nền tảng . . . . . . . . . . . . . . . . . . . . . . .
+3
+II.2
+Tìm và phân tích Paper . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+II.3
+Xác định output và chiến lược thực hiện . . . . . . . . . . . . . . . . . . . .
+4
+II.4
+Cấu trúc Folder làm việc . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+II.5
+Yêu cầu kết quảtheo từng tuần . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+II.6
+Cập nhật tiến độqua Google Form . . . . . . . . . . . . . . . . . . . . . . .
+5
+III.
+Hỗtrợ, Review và định hướng phát triển
+. . . . . . . . . . . . . . . . . . .
+6
+III.1
+Hỗtrợvà làm việc với TA . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+III.2
+Tìm kiếm hội nghịphù hợp
+. . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+III.3
+Quy định trong quá trình thực hiện . . . . . . . . . . . . . . . . . . . . . . .
+7
+2
+
+===== PAGE 3 =====
+AI VIET NAM (EDA2026)
+aivietnam.edu.vn
+II.
+Quy trình thực hiện
+Hình 1: Quy trình thực hiện.
+II.1
+Học và củng cốkiến thức nền tảng
+Mỗi subtopic gắn với các nội dung đã có hoặc sẽđược học trong chương trình AIO2026. AI
+VIET NAM chuẩn bịcác video và tài liệu cần thiết đểcác bạn có thểvừa học kiến thức nền
+tảng vừa triển khai Topic Team song song.
+Trước khi bắt đầu triển khai, nhóm cần hiểu bài toán chính, nguyên lý hoạt động, các công
+thức hoặc quy trình quan trọng và cách kiến thức đó được áp dụng trong thực tế. Sau quá trình
+học, nhóm cần tựhệthống lại kiến thức đểxác định phần đã hiểu, phần còn thiếu và những
+vấn đềcó thểtiếp tục tìm hiểu.
+Ngoài kiến thức chuyên môn, các bạn được khuyến khích xem lại các nội dung vềresearch và
+soft skills trên LMS. Những nội dung này hỗtrợquá trình tìm paper, phân tích phương pháp,
+xác định vấn đề, xây dựng câu hỏi nghiên cứu và trình bày kết quả.
+Tổng hợp video bài học: Link
+II.2
+Tìm và phân tích Paper
+Mỗi subtopic sẽcó một Google Sheet Paper Tracker riêng đểnhóm lưu các paper đã tìm và
+kết quảđọc paper. Trong quá trình thực hiện, mỗi nhóm cần chủđộng tìm tối thiểu 05 paper
+phù hợp với subtopic hoặc hướng đang phát triển.
+Với mỗi paper, nhóm cần ghi lại các thông tin chính như bài toán, phương pháp, điểm cải tiến,
+kết quả, những gì học được và nội dung có thểtiếp tục áp dụng. Paper Tracker không chỉdùng
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 3
+
+===== PAGE 4 =====
+AI VIET NAM (EDA2026)
+aivietnam.edu.vn
+đểlưu tài liệu mà còn giúp nhóm so sánh các phương pháp, nhận ra những hạn chếcòn tồn tại
+và hình thành hướng thực hiện của mình.
+II.3
+Xác định output và chiến lược thực hiện
+Ngay từTuần 1, mỗi nhóm cần xác định output cuối cùng dựkiến và xây dựng outline cho
+toàn bộquá trình thực hiện. Output có thểlà project hoặc sản phẩm ứng dụng, demo hoặc bài
+thửnghiệm, hướng nghiên cứu hoặc draft paper.
+Trong outline, nhóm cần trình bày vấn đềmuốn thực hiện, hướng triển khai, output dựkiến
+và mục tiêu cụthểmuốn đạt được ởtừng tuần. Các nhóm không bắt buộc phải có cùng một
+loại sản phẩm hoặc cùng một kếhoạch. Kết quảcủa từng nhóm sẽđược đánh giá dựa trên mục
+tiêu mà nhóm đã xây dựng từTuần 1.
+ Thay đổi kếhoạch
+Nếu nhóm muốn thay đổi output hoặc chiến lược đã thống nhất trong outline, nhóm cần
+trao đổi lại với TA trước khi điều chỉnh hướng thực hiện.
+II.4
+Cấu trúc Folder làm việc
+Mỗi nhóm sẽcó một folder riêng đểlưu toàn bộtài liệu trong quá trình thực hiện Topic Team.
+Folder là nơi TA kiểm tra các kết quảvà tài liệu mà nhóm đã hoàn thành.
+Cấu trúc chính gồm:
+Tên Subtopic/
+|
+|-- Paper Tracker
+|
+`-- Working Files/
+Paper Tracker là Google Sheet dùng đểlưu và phân tích các paper nhóm đã đọc.
+Template: Link
+Working Files là nơi lưu outline, source code, notebook, data, kết quảthửnghiệm, tài liệu
+phân tích và các phiên bản sản phẩm đang được phát triển.
+Google Form cập nhật tiến độkhông nằm trong folder làm việc. Form sẽđược chương trình
+gửi trực tiếp cho Leader của từng nhóm.
+II.5
+Yêu cầu kết quảtheo từng tuần
+Các mốc theo tuần được sửdụng đểkiểm tra chất lượng và mức độhoàn thành so với kếhoạch
+mà nhóm đã xây dựng từTuần 1. Kết quảcụthểcủa từng nhóm có thểkhác nhau tùy theo
+output và chiến lược đã lựa chọn.
+Tuần 1: Xây dựng outline và kếhoạch
+Trong tuần đầu tiên, nhóm hoàn thành kiến thức nền tảng, bắt đầu tìm và đọc paper, xác định
+vấn đềmuốn tập trung và lựa chọn output dựkiến. Nhóm cần xây dựng outline cho toàn bộ
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 4
+
+===== PAGE 5 =====
+AI VIET NAM (EDA2026)
+aivietnam.edu.vn
+quá trình, trong đó xác định rõ output cuối cùng, hướng triển khai, mục tiêu của từng tuần và
+kếhoạch thực hiện cho các tuần tiếp theo.
+Đến cuối Tuần 1, outline và kếhoạch cần được cập nhật vào Working Files. Paper Tracker cũng
+cần được bắt đầu hoàn thiện trong giai đoạn này.
+Tuần 2 và Tuần 3: Thực hiện theo chiến lược đã xây dựng
+Trong Tuần 2 và Tuần 3, nhóm tiếp tục thực hiện theo outline và chiến lược đã xây dựng từ
+Tuần 1. Tùy theo hướng đã chọn, nhóm có thểtriển khai sản phẩm, thực hiện thửnghiệm,
+phân tích thêm paper hoặc tiếp tục phát triển hướng nghiên cứu.
+Đến cuối mỗi tuần, nhóm cần tổng hợp kết quảđạt được và cập nhật một phiên bản vào
+Working Files đểTA kiểm tra. Tên file cần thểhiện rõ tuần thực hiện và nội dung chính.
+Ví dụtên file:
+• WEEK02 - Experiment Results
+• WEEK02 - Research Gap Analysis
+• WEEK02 - Product Prototype
+• WEEK03 - Improved Experiment
+• WEEK03 - Research Direction
+Kết quảcuối tuần cần thểhiện được mức độhoàn thành so với mục tiêu nhóm đã đặt trong
+outline. Đây là cơ sởđểTA kiểm tra chất lượng output sau mỗi tuần và góp ý cho hướng tiếp
+theo.
+Tuần 4: Hoàn thiện output
+Trong tuần cuối, nhóm hoàn thiện phiên bản tốt nhất của output đã lựa chọn và cập nhật đầy
+đủvào Working Files. Kết quảcuối cần cho thấy output của nhóm là gì, mục tiêu ban đầu đã
+hoàn thành đến mức nào, kết quảchính đạt được, những hạn chếcòn tồn tại và hướng có thể
+tiếp tục phát triển.
+Với các nhóm phát triển theo hướng nghiên cứu, nhóm có thểbổsung conference hoặc journal
+phù hợp đểđịnh hướng cho giai đoạn tiếp theo.
+II.6
+Cập nhật tiến độqua Google Form
+Bên cạnh kết quảtổng hợp vào cuối mỗi tuần, Leader của mỗi nhóm cần cập nhật tiến độ03
+ngày một lần thông qua Google Form do chương trình cung cấp. Cơ chếnày giúp Ad và TA
+theo dõi quá trình thực hiện thường xuyên và hạn chếtình trạng dồn toàn bộcông việc vào
+những ngày cuối.
+Mỗi lần cập nhật cần cung cấp các thông tin sau:
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 5
+
+===== PAGE 6 =====
+AI VIET NAM (EDA2026)
+aivietnam.edu.vn
+Nội dung
+Thông tin cần cập nhật
+Tiến độ
+Những công việc nhóm đã thực hiện trong 03 ngày gần nhất.
+Kết quả
+Kết quảhiện tại và vịtrí đã cập nhật kết quả.
+Kếhoạch tiếp theo
+Những công việc nhóm dựkiến tiếp tục thực hiện.
+Khó khăn
+Các vấn đềđang gặp trong quá trình triển khai.
+HỗtrợtừTA
+Các câu hỏi hoặc nội dung nhóm cần TA giải thích và góp ý.
+Ví dụ, nếu nhóm đã tìm thêm paper, nhóm có thểghi rằng đã tìm và phân tích thêm 03 paper
+liên quan, đồng thời đã cập nhật kết quảvào Google Sheet Paper Tracker. Nếu đang gặp khó
+khăn trong việc lựa chọn phương pháp hoặc hướng triển khai, nhóm ghi rõ vấn đềđểTA có
+thểhỗtrợ.
+Nếu nhóm đang triển khai thửnghiệm, nhóm cần cho biết phần nào đã hoàn thành, kết quả
+đã được lưu ởđâu trong Working Files và vấn đềkỹthuật hiện tại là gì.
+TA sẽtheo dõi các nội dung được gửi qua Google Form đểnắm được tình trạng của từng nhóm
+và hỗtrợgiải thích những khó khăn hoặc câu hỏi phát sinh.
+ò
+Hai mốc cập nhật cần phân biệt
+03 ngày một lần: Leader cập nhật tiến độ, khó khăn và câu hỏi qua Google Form.
+Cuối mỗi tuần: Nhóm tổng hợp một phiên bản kết quảvào Working Files đểTA kiểm
+tra chất lượng so với mục tiêu đã đặt trong outline.
+ Yêu cầu duy trì tiến độ
+Nếu nhóm không cập nhật tiến độtrong vòng 03 ngày, nhóm sẽbịbuộc rời khỏi chương
+trình.
+III.
+Hỗtrợ, Review và định hướng phát triển
+III.1
+Hỗtrợvà làm việc với TA
+Trong quá trình thực hiện, Ad sẽtheo dõi tiến độvà hỗtrợkết nối các nhóm với TA hoặc
+thành viên đang phụtrách nội dung phù hợp. TA có thểhỗtrợreview hướng triển khai, kết
+quảthửnghiệm, hướng nghiên cứu và đềxuất các hướng cải tiến tiếp theo.
+Trước khi trao đổi với TA, nhóm cần chuẩn bịrõ vấn đềđang gặp, những cách đã thử, kết quả
+hiện tại, các paper liên quan và câu hỏi cần được hỗtrợ. TA không thực hiện topic thay cho
+nhóm mà đóng vai trò review và góp ý dựa trên kết quảmà nhóm đã thực hiện.
+Nếu output có tiềm năng, nhóm có thểtiếp tục bổsung thửnghiệm, cải thiện phương pháp và
+phát triển kết quảhiện tại thành một project hoặc draft paper hoàn chỉnh hơn.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 6
+
+===== PAGE 7 =====
+AI VIET NAM (EDA2026)
+aivietnam.edu.vn
+III.2
+Tìm kiếm hội nghịphù hợp
+Các nhóm được khuyến khích tìm hiểu những conference hoặc journal có hướng nghiên cứu liên
+quan đến topic của mình. Mỗi topic sẽcó một sốvenue được gợi ý đểnhóm tham khảo paper
+mới, theo dõi những vấn đềđang được quan tâm và hiểu rõ hơn yêu cầu của lĩnh vực.
+Với các nhóm phát triển theo hướng research, đến Tuần 4 có thểxác định conference hoặc
+journal dựkiến phù hợp với hướng hiện tại, kiểm tra scope và đánh giá những phần còn thiếu
+nếu muốn tiếp tục phát triển kết quảthành một submission.
+Việc lựa chọn venue ởgiai đoạn này nhằm tạo định hướng phát triển tiếp theo, không yêu cầu
+tất cảcác nhóm phải có paper đểsubmit ngay sau bốn tuần.
+III.3
+Quy định trong quá trình thực hiện
+Các output được submit trong Topic Team phải do chính thành viên của nhóm trực tiếp thực
+hiện. Các bạn cần tựhọc, tựđọc paper, tựphân tích, triển khai và đánh giá kết quảtrong suốt
+quá trình tham gia.
+ Quy định vềsửdụng AI
+Không sửdụng AI đểviết nội dung sản phẩm nộp và không sửdụng hình ảnh được tạo
+bằng AI. AI không được sửdụng đểthay thếquá trình tựđọc paper, tựphân tích hoặc
+tựxây dựng nội dung của nhóm.
+Các hình minh họa sửdụng trong tài liệu cần được nhóm tựthiết kếhoặc tựvẽlại dựa
+trên sựhiểu biết của mình. Khi tham khảo ý tưởng, kiến trúc, hình ảnh hoặc nội dung
+từnguồn khác, nhóm cần ghi nguồn đầy đủ.
+Mục tiêu của Topic Team là giúp các bạn trải qua đầy đủquá trình học, research, triển khai,
+gặp vấn đề, đánh giá kết quảvà hoàn thiện một output cụthểcủa chính nhóm mình.
+ SĐT/Zalo: 0911118758 (Dr. Hồng Phúc)
+Trang 7

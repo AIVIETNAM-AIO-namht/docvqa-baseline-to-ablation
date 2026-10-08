@@ -1,0 +1,35 @@
+# ── Dữ liệu cuộc thi: KHÔNG public ──────────────────────────────────────────
+# data/ = 889 MB (training 711M + private 119M + public 60M). Không phải code của
+# mình, và luật cuộc thi thường cấm phát tán. Tải lại từ BTC.
+data/
+# Repo của BTC clone về máy — không phải sản phẩm của mình.
+olp-ai-ptit-2026-preliminary-round/
+
+# ── PDF: giữ bản .md đã trích, bỏ file gốc ──────────────────────────────────
+Slot 1/Working Files/papers/**/*.pdf
+Slot 1/Working Files/reference/*.pdf
+
+# ── Ảnh crop sinh ra khi chạy probe (tái tạo được) ──────────────────────────
+Slot 1/Working Files/probe_d/crops/
+
+# ── Bản backup Outline: git đã giữ lịch sử, không cần bản sao 2,2 MB/file ───
+*BACKUP*.docx
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── Node ────────────────────────────────────────────────────────────────────
+node_modules/
+
+# ── File tạm khi soạn báo cáo ───────────────────────────────────────────────
+_tmp_*.txt
+*.inspect.ndjson
+
+# ── OS / editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

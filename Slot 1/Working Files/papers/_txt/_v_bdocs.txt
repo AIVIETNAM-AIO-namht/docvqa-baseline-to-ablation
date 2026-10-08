@@ -1,0 +1,1821 @@
+=== PAGE 1 ===
+International Journal on Document Analysis and Recognition (IJDAR) (2026) 29:447–462
+https://doi.org/10.1007/s10032-025-00563-5
+ORIGINAL PAPER
+BoundingDocs: a Uniﬁed Dataset for Document Question Answering
+with Spatial Annotations
+Simone Giovannini1 · Fabio Coppini2 · Andrea Gemelli2 · Simone Marinai1
+Received: 15 November 2024 / Revised: 23 October 2025 / Accepted: 25 November 2025 / Published online: 6 December 2025
+© The Author(s) 2025
+Abstract
+We present a uniﬁed dataset for document Question-Answering (QA), which is obtained combining several public datasets
+related to Document AI and visually rich document understanding (VRDU). Our main contribution is twofold: on the one
+hand we reformulate existing Document AI tasks, such as Information Extraction (IE), into a Question-Answering task,
+making it a suitable resource for training and evaluating Large Language Models; on the other hand, we release the OCR of
+all the documents and include the exact position of the answer to be found in the document image as a bounding box. Using
+this dataset, we explore the impact of different prompting techniques (that might include bounding box information) on the
+performance of open-weight models, identifying the most effective approaches for document comprehension.
+Keywords Large Language Models (LLMs) · Document AI · Dataset · Question Answering · Fine-tuning · Information
+Extraction
+1 Introduction
+The increasing number of documents produced in vari-
+ous ﬁelds, including scientiﬁc research, legal proceedings,
+healthcare, and business, has created an enormous demand
+for efﬁcient information extraction (IE) methods.
+Indocumentprocessingresearch,OpticalCharacterRecog-
+nition (OCR) has proven essential for transforming scanned
+documents and images into machine-readable text, facilitat-
+ing further analysis. Initially, statistical methods [1] were
+used alongside OCR to extract information, followed by
+machine learning approaches. Subsequently, deep learning
+Fabio Coppini, Andrea Gemelli, Simone Marinai contributed equally
+to this work.
+B Simone Giovannini
+simone.giovannini1@uniﬁ.it
+Fabio Coppini
+fabio.coppini@letxbe.ai
+Andrea Gemelli
+andrea.gemelli@letxbe.ai
+Simone Marinai
+simone.marinai@uniﬁ.it
+1
+DINFO, Universitá degli Studi di Firenze, Via di Santa Marta,
+3, Florence 50139, Italy
+2
+LETXBE, 229 Rue Saint-Honoré, Paris 75001, France
+techniques [2], especially methods related to Natural Lan-
+guage Processing (NLP), became crucial in advancing docu-
+ment understanding. Today, the focus has shifted towards
+Large Language Models (LLMs) [3], which, with their
+exceptional ability to model natural language in complex
+contexts, have further enhanced document comprehension
+and the automation of information extraction from extensive
+volumes of text.
+OCR tools and LLMs are now extensively used to perform
+several tasks in Document AI, including:
+• Document Image Classiﬁcation: classiﬁes document
+images into types such as invoices, scientiﬁc papers, and
+receipts [4];
+• Visual Information Extraction: extracts entities and
+relationships fromunstructuredcontent, consideringtext,
+visual elements, and layout [5];
+• Visual Question Answering: answers natural language
+questions based on a document’s content [6].
+The
+two
+main
+motivations
+for
+building
+the
+BoundingDocs dataset1, that is focused on Information
+Extraction and Question Answering, are:
+1 The dataset is publicly available at https://huggingface.co/datasets/
+letxbe/BoundingDocs.
+123
+
+=== PAGE 2 ===
+448
+S. Giovannini et al.
+1. the lack of extensive and diverse QA datasets in the ﬁeld
+of Document AI;
+2. the lack of precise spatial coordinates in the existing
+datasets.
+Current datasets do not effectively incorporate positional
+data, which is essential for reducing hallucinations and
+improving performance by enabling LLMs to understand
+document layout more precisely. In contrast, the proposed
+dataset, BoundingDocs, is speciﬁcally designed to capture
+positional information, which not only deﬁnes the dataset’s
+core feature but also serves multiple purposes. First, it allows
+for verifying whether a model correctly extracts both the
+value and its location, providing deeper insights into the
+model’s comprehension of document structure and helping
+to mitigate hallucinations. Second, it can be leveraged to
+enhance prompting by incorporating more detailed layout-
+aware instructions, further improving the model’s ability to
+interpret and generate structured outputs.
+Contribution
+In this work, we propose a uniﬁed approach to build a
+Question-Answering dataset. Such a dataset can be used for
+evaluating how good Document AI models are to extract
+relevant information when answering to natural language
+questions. In doing so, we aim to address the following
+research questions:
+• RQ1: How can existing datasets be uniﬁed into a com-
+mon Question-Answering format?
+• RQ2: Can rephrased questions generated by LLMs
+enhance answer accuracy for document-based questions?
+• RQ3: Does including layout information in prompts (e.g.
+[7, 8]) improve the model’s performance on document
+comprehension tasks?
+To explore these questions, our study is organized into
+the following sections. Section 2 reviews the existing lit-
+erature and benchmarks in the ﬁeld of Document AI and
+question answering tasks; Section 3 describes the process of
+unifyingdatasetsintoacommonQuestion-Answeringformat
+with enhanced layout annotations; Section 4 evaluates the
+performance of LLMs using various prompting techniques
+and presents the results. Conclusions are drawn in Section 5
+where we discuss our ﬁndings, the key challenges encoun-
+tered, and propose directions for future research.
+2 State of the art
+We provide an overview of the main models and techniques
+proposedforQuestionAnswering(QA)andVisualQuestion-
+Answering (VQA) [6]. We also discuss the features of the
+main datasets in the Document AI that we considered in our
+research.
+2.1 Related datasets
+As summarized in Table 1, we selected datasets that best
+match our focus on comprehensive document understand-
+ing and advanced VQA, addressing challenges across both
+single-page and multi-page documents. One detailed review
+covering more datasets focused on layout-related tasks can
+be found in [9].
+Among the foundational datasets, DocVQA [6, 14] stands
+as one of the earliest benchmarks dedicated to VQA on doc-
+ument images, focusing on understanding both textual and
+layout aspects of documents. Introduced in 2020, DocVQA
+comprises multiple tasks designed to push the boundaries of
+document comprehension. The main tasks include answering
+questions about individual document pages and analyzing
+multi-page documents - a crucial capability for real-world
+applications. The Single Page [6] subset includes 50,000
+questions over 12,767 documents, while the Multi Page
+[14] subset contains 46,436 questions spanning 5,929 docu-
+ments(covering47,952pagesintotal).Thesedatasetsrequire
+models to interpret the visual structure of documents and to
+derive insights that go beyond simple text extraction.
+DUDE [12] builds on this foundational work by extend-
+ing VQA to multi-domain, multi-purpose documents. The
+dataset provides 5,000 annotated PDF ﬁles with 18,700
+question-answer pairs across various domains and time
+frames, making it a unique resource for tasks that inte-
+grate Document Layout Analysis with complex, layout-
+based question answering. Unlike typical QA datasets, DUDE
+often requires multi-step reasoning, handling both content
+and structural queries. For instance, questions may include
+layout-based prompts such as “How many text columns are
+there?” or require arithmetic and comparison skills, present-
+ing a challenging dataset for models trained primarily on
+text-based QA.
+In addition to these datasets, several others serve as stan-
+dard benchmarks and are worth mentioning brieﬂy. VRDU
+[10] includes two corpora-registration forms from the U.S.
+Department of Justice and ad-buy forms from the FCC-
+123
+
+=== PAGE 3 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+449
+Table 1 Datasets review details.
+For clarity, the following codes
+are used in the table: OCR info
+- 1: Full text with bboxes, 2:
+Partial text with bboxes, 3: Full
+text without bboxes; OCR
+engine - 0: Not speciﬁed, 1:
+Tesseract, 2: Amazon Textract,
+3: Microsoft OCR, 4: Azure
+Cognitive Service, 5: Synthetic
+document (OCR not needed; text
+is pre-known); Type - 1: Real, 2:
+Synthetic; Lang - 1: English, 2:
+Italian, 3: French, 4: Spanish, 5:
+Chinese, 6: German, 7:
+Portuguese, 8: Japanese, 9:
+Indonesian, 10: Not speciﬁed
+mix.
+Dataset review
+Dataset
+Size
+Answers
+OCR Info
+OCR Engine
+Type
+Lang
+VRDU [10]
+2,556
+Yes
+1
+0
+1
+1
+Deepform [11]
+60,000
+Yes
+1
+1
+1
+1
+DUDE [12]
+4,974
+Yes
+1
+1, 2, 4
+1
+1
+FATURA [13]
+10,000
+Yes
+2
+5
+2
+1
+SP-DocVQA [6]
+12,767
+No
+1
+3
+1
+1
+MP-DocVQA [14]
+5,929
+No
+1
+2
+1
+1
+FUNSD [15]
+199
+Yes
+1
+0
+1
+1
+Kleister Charity [16]
+2,788
+No
+3
+1, 2
+1
+1
+Kleister NDA [16]
+540
+No
+3
+1, 2
+1
+1
+SROIE [17]
+1,000
+No
+1
+0
+1
+1
+XFUND [18]
+1,393
+Yes
+1
+0
+1
+2,3,4,5,6,7,8
+SynthTabNet [19]
+600,000
+Yes
+1
+5
+2
+1
+CORD [20]
+1,000
+Yes
+2
+0
+1
+9
+GHEGA [21]
+246
+Yes
+1
+0
+1
+10
+representing templates of varying complexity. The FATURA
+[13] dataset provides 10,000 images across 50 templates
+with imbalanced distributions for ﬁelds commonly found in
+invoices, such as buyer information and total amount, along
+with bounding box annotations for structured data extrac-
+tion. Kleister [16] datasets offer specialized ﬁnancial
+reports and legal documents, with Kleister Charity
+and Kleister NDA addressing entity extraction for key
+attributes. Deepform [11] offers approximately 20,000
+labeled receipts for political ad purchases with labeled ﬁelds
+for speciﬁc political advertising details.
+Finally, FUNSD [15] and XFUND [18] are form-centric
+datasets focused on entity linking and key-value extraction
+in noisy, often multilingual documents. FUNSD includes 199
+annotatedformsinEnglish,designedforformunderstanding,
+while XFUNDbroadensthistoamultilingualsettingwithdoc-
+uments in seven languages, capturing the diversity of form
+structures globally.
+Recently,
+several
+uniﬁed
+datasets
+similar
+to
+BoundingDocs have been published, aiming to integrate
+multiple document sources or tasks sharing both similar-
+ities and differences with our approach. Docmatix [22]
+and K2Q [23] are Information Extraction datasets contain-
+ing 2.1 million and 12,000 documents, respectively. Both
+generate question-answer pairs automatically using LLMs.
+Notably, K2Q, which is only available upon request, imple-
+ments a similar strategy to ours by augmenting questions that
+were initially created using ﬁxed templates at the dataset
+level. However, neither dataset includes information about
+the position of the answer within the text, which distinguishes
+BoundingDocs.
+Additionally,recentlypublisheddatasetssuchasBigDocs
+[24] and DocStruct4M [25] aim to aggregate multi-
+ple tasks beyond Information Extraction. These datasets
+contain 7 million multimodal documents and 4 million
+documents, respectively. While signiﬁcantly larger than
+BoundingDocs, they fall outside our focus on business
+documents. Moreover, they encompass a wide range of tasks,
+including Screenshot2HTML, Table2LaTeX, ChartParsing,
+and TableParsing. Not all examples in these datasets follow
+a question-answering format, and, most notably, they do not
+provide bounding box information for the answers.
+2.2 Related methods
+In recent years, the QA task [6, 14] has been approached
+in many ways, leveraging different techniques and vari-
+ous model architectures. These methods can be broadly
+categorized into NLP-based, LLM-based, and multimodal
+architectures, each addressing different aspects of document
+understanding and question answering.
+NLP-based approaches build on general Question-
+Answering models, primarily focusing on text semantics
+without explicitly incorporating document layout or visual
+features. A prime example is BertQA [6], which utilizes a
+BERT architecture followed by a classiﬁcation head to pre-
+dictthestartandendindicesofananswerspan.Modiﬁcations
+such as changes in hyperparameters and the introduction of
+new pre-training tasks have been explored in multiple works
+[26, 27], resulting in improved outcomes.
+LLM-based methods leverage large language models to
+perform document understanding tasks by encoding struc-
+tural and layout information directly into the input. For
+instance, LMDX [28] incorporates layout information via
+bounding box coordinates in the prompt, enhancing retrieval
+precision and reducing hallucinations. DocLLM [29], which
+123
+
+=== PAGE 4 ===
+450
+S. Giovannini et al.
+builds on the LayoutLM family, includes a specialized pre-
+training phase focused on structured layout data to improve
+document layout understanding. In contrast, NuExtract
+[30] is designed for extracting structured JSON data from
+documents, using training data derived from the Colossal
+Clean Crawled Corpus [31].
+Multimodal architectures combine visual and textual
+features to enhance document comprehension across lay-
+out, content, and structure. Among OCR-free methods,
+mPLUG-DocOWL 1.5[25]integratesaVisionTransformer
+(ViT) [32] with an LLM for comprehensive Document AI
+analysis, aligning layout and textual cues effectively without
+requiring separate OCR stages. Similarly, Donut [33] and
+Dessurt [34] operate without OCR preprocessing, directly
+integrating image and text data for robust document under-
+standing.
+In contrast, OCR-dependent models further reﬁne docu-
+ment comprehension by incorporating OCR-based tokens.
+Hi-VT5 [14], for example, combines OCR tokens with
+visual features, optimizing its effectiveness for Question-
+Answering tasks that rely on precise textual information.
+Additionally, LayoutLMv3 [35] introduces visual patch
+embeddings in place of traditional CNNs to better align text,
+layout, and visual cues, resulting in improved performance
+on tasks requiring ﬁne-grained structural interpretation.
+3 Dataset construction
+We base our new dataset, BoundingDocs, on the
+following datasets selected from Table 1: SP-DocVQA,
+MP-DocVQA,
+DUDE,
+Deepform,
+VRDU,
+FATURA,
+Kleister Charity, Kleister NDA, FUNSD, and
+XFUND. Our selection focuses speciﬁcally on business
+document-based datasets, thereby excluding datasets such
+as InfographicsVQA [36] and SlideVQA [37], which
+primarily deal with non-business documents, as well as
+VisualMRC [38], which, despite being document-based,
+featuresabstractiveratherthanextractiveanswers,asdetailed
+in Section 3.2.1.
+AlthoughmostoftheselecteddatasetsoriginatefromKey-
+Value extraction tasks, which may involve recurring question
+types, BoundingDocs ensures diversity by incorporat-
+ing datasets with heterogeneous characteristics. Speciﬁcally,
+BoundingDocs includes documents with widely varying
+layouts, structural complexities, and languages, spanning
+multiple domains such as invoices, contracts, forms, receipts,
+and documents containing some handwritten-ﬁlled forms.
+This collection provides an essential resource for training
+and evaluating Document AI models.
+In Figure 1 we show the implemented pipeline for dataset
+construction.
+3.1 Dataset format definition
+For each document, a JSON ﬁle contains the annotation
+(examples in Figure 2). Each word in the answer is linked to
+its corresponding bounding box. Following established prac-
+tices in the literature (e.g., LayoutLM [35], BERT [2]), the
+bounding boxes are normalized integers ranging from 0 to
+1000 relative to the actual page size. Each bounding box is
+deﬁned by a list of four values: the width, the height, the X
+and Y coordinates of the top-left vertex of the rectangle.
+3.2 Producing annotations
+A signiﬁcant challenge comes from integrating various
+types of annotations into a uniﬁed structure. Datasets like
+Deepform, Kleister, and FATURA provide annotations
+that only establish a relationship between a key and its corre-
+sponding value in the text, such as annotating Address = 48
+Woodford, SandyFord. However, these datasets lack essential
+positional information, such as the text’s location, frequency
+of occurrence, and page number. In contrast, datasets like
+VRDU and MP-DocVQA provide different types of positional
+information: the former provides bounding boxes for the val-
+ues to be extracted, while the latter only speciﬁes which page
+of the document contains the answer. However, inconsisten-
+cies may arise because these datasets utilize different OCR
+tools, leading to variations in positional measurements and
+formats. To ensure consistent calculations for bounding box
+positions, we selected Amazon Textract [39], as it is both
+alreadydeployedinourcompany’sdocumentprocessingsys-
+tems (reducing annotation costs and ensuring consistency)
+and one of the most widely used commercial OCR services.
+In the case of FUNSD and XFUND, the datasets contain
+annotations related only to the text’s structure and relation-
+ships between elements. Consequently, additional steps are
+necessary to generate relevant questions from these datasets.
+3.2.1 Dataset preparation
+Upon collecting and downloading the datasets the following
+preliminary operations have been considered case by case.
+These additional steps are critical to standardize and pre-
+pare the datasets for the generation of annotations. Note that
+when the test split is not public, as in Kleister, DUDE, and
+DocVQA, the documents in those test splits and their corre-
+sponding annotations are excluded from BoundingDocs.
+Annotation Conversion: When the annotations in a
+dataset have a complex format, they are converted into a stan-
+dardized, more straightforward format. This is particularly
+required for the VRDU dataset, where the original annota-
+tions require interpretation and conversion.
+Filtering Pages/Questions: Some datasets contain redun-
+dant or irrelevant content, such as unnecessary pages or
+123
+
+=== PAGE 5 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+451
+Fig. 1 Dataset construction pipeline. The process begins with two main
+dataset categories: QA datasets (red) and Key-Value extraction datasets
+(blue). Both categories are processed using AWS OCR (Textract), fol-
+lowed by annotation matching. For the Key-Value extraction datasets,
+questions are generated and rephrased using Mistral 7B v0.3. All
+processed components are then uniﬁed into BoundingDocs (purple).
+Fig. 2 Sample of QA pairs from the dataset. The left QA pair is sourced from Deepform, while the right one is from Kleister Charity.
+The purple values represent the speciﬁc details related to each QA pair, and the blue keys denote the ﬁxed structure deﬁned for our dataset.
+questions, which have been removed. For instance, in the
+DocVQA dataset, pages from the Multi Page set were
+excluded from the Single Page set to prevent duplica-
+tion. Additionally, for both DUDE and DocVQA datasets, we
+ﬁltered out all questions that can be deﬁned as abstractive,
+meaning that the answer is not explicitly present in the doc-
+ument text but instead requires reasoning or synthesis. Since
+our objective is to provide the exact location of each answer
+within the document, it is essential to retain only extractive
+questions, where the answer can be directly found in the text.
+This ensures that every identiﬁed answer has a correspond-
+ing position in the document, which would not be possible
+for abstractive questions.
+Downloading Original Documents: In datasets where
+only annotations are provided without the corresponding
+documents, the original documents are downloaded from
+external sources. This step was necessary for the Deepform
+dataset, where the PDFs were not included alongside the
+annotations.
+OCR Processing with Textract: To ensure consistency
+across all datasets, Amazon Textract has been applied to
+all documents, regardless of whether they already con-
+tained OCR data. Datasets were processed through Textract
+not only when OCR data was completely absent, but also
+when OCR was only provided for the annotated ﬁelds.
+This process has been applied to datasets such as VRDU,
+FATURA, Kleister, SP-DocVQA, Deepform, FUNSD,
+and XFUND, where OCR data is either insufﬁcient or not
+provided.
+Key-ValueAssociationCreation:For FUNSDand XFUND,
+key-value pairs for information extraction were generated
+from the annotations. This step involves linking elements
+labeled as questions to their corresponding answers to facil-
+itate coherent information extraction.
+3.2.2 Matching annotations and OCR
+To match the answer to each question with the data extracted
+by Textract [39], a script has been developed whose main
+challenge is to identify the correct word when the same
+value appears at multiple positions. Our approach matches
+the annotated value with the extracted text and considers all
+occurrences as potential matches. While this method ensures
+broad coverage, it may lead to false positives when the same
+textual value appears in unrelated contexts. A thorough anal-
+ysis of this aspect can be found in Section 3.3.
+123
+
+=== PAGE 6 ===
+452
+S. Giovannini et al.
+A considerable time has been devoted to produce high
+quality annotations. This script, a signiﬁcant part of our
+contribution, is used across all datasets with only slight mod-
+iﬁcations to match the different annotation formats.
+For a document and a given key-value pair, where the
+key represents a label (such as “name,” “address,” or “date”)
+describing the type of information, and the value contains
+the actual data associated with that label, the script executes
+the following steps (no brand new annotations are created):
+1. Compare each text line extracted by Textract (Line)
+with the correct answer using Jaccard similarity. The Jac-
+card similarity between two sets A and B is given by:
+J(A, B) = |A∩B|
+|A∪B| where |A ∩B| is the number of com-
+mon elements between the two sets, and |A ∪B| is the
+total number of unique elements across both sets.
+2. If similarity exceeds a given threshold, the Line is added
+to a set of candidates.
+3. For each candidate line that exceeds the Jaccard simi-
+larity threshold, we verify that each word of the ground
+truth answer is also detected as a Word block by Tex-
+tract and falls within the Line bounding box. The set
+of all Word blocks (and their corresponding bounding
+boxes) that, when concatenated, reconstruct the origi-
+nal answer becomes the localized and annotated answer
+in BoundingDocs. If the answer is found in multiple
+locations on the page through this procedure, all occur-
+rences are considered valid answers.
+Note that all date annotations in the Kleister datasets
+follow the ’YYYY-MM-DD’ format. If a date appears in a
+different format within the document, its original annotation
+is standardized to this format. Our script is designed to handle
+this speciﬁc case through the use of regular expressions. This
+was not necessary for the other datasets.
+3.2.3 Questions formulation
+For datasets that are not originally designed for QA but only
+for key-value extraction, it is necessary, after matching the
+answers with the OCR output, to also generate the corre-
+sponding questions. Therefore, in addition to the three steps
+described in the previous section, the following two addi-
+tional steps are performed:
+4. Questions are generated using the template What is
+the [key name]?
+(e.g.,
+What is the
+Address?). Note that [key name] does not refer
+to the actual name assigned to the key by the datasets
+(e.g., program_desc) but rather to a reﬁned, natural-
+language version deﬁned by us (e.g., program
+description). We manually reﬁned around 10 keys
+per dataset. This ensures that questions are always in
+natural language-though not necessarily correct-but con-
+sistently composed of meaningful words. For XFUND, the
+question template was automatically translated to match
+document languages. Datasets with pre-deﬁned ques-
+tions (DUDE, MP-DocVQA, SP-DocVQA) used their
+own questions.
+5. Moreover, for VRDU Ad Buy Form, additional ques-
+tions are created to account for key-value pairs linked to
+speciﬁc ad programs, such as:
+• What is the [program_start_date] for
+[program_desc]?
+• What is the [program_end_date] for
+[program_desc]?
+• What is the [sub_amount] for [program
+_desc]?
+3.2.4 Rephrasing questions
+After the previously described steps, the questions for the
+new dataset are generated. Inspection of these questions,
+which followed a simple template-based structure, revealed
+that they are often grammatically incorrect, overly simplis-
+tic, and consistently adhered to the same pattern. This raised
+concerns that ﬁne-tuning an LLM on these questions could
+introduce bias, potentially leading to poor performance on
+questions written by humans, which may not follow the tem-
+plate.
+To mitigate this issue, we employed the Mistral 7B
+model [40] to correct and rewrite the questions, aiming to ﬁx
+errors and introduce linguistic diversity. Other Mistral mod-
+els, such as Mistral Large [41] and Mixtral 8x7B
+[42], were also tested, but they produced overly complex,
+verbose, and unnatural questions.
+Thepromptforquestionrewritingincludedmanuallywrit-
+ten examples to guide the model, with no information about
+the correct answer to avoid biasing the generation. For exam-
+ple, the question What is the Gross Amount? was
+rewrittenbytheLLMas What is the value of the
+Gross Amount?.
+This procedure was applied to most questions in the
+dataset, adding a new attribute, rephrased_question.
+Questions from DUDE, MP-DocVQA, and SP-DocVQA
+were excluded as they were already human-written.
+To ensure quality and limit hallucinations, we iteratively
+reﬁned the prompt during the design phase and validated the
+outputs through manual sampling. Additionally, the LLM
+was instructed to preserve the semantic meaning a from the
+template questions, using the original answer as a starting
+point.
+123
+
+=== PAGE 7 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+453
+Table 2 Overall statistics of
+BoundingDocs, divided by
+source.
+Dataset
+Documents
+Pages
+Questions
+Ques./Page
+Ques./Doc
+Deepform
+24,345
+100,747
+55,926
+0.55
+2.30
+DUDE
+2,583
+13,832
+4,512
+0.33
+1.75
+FATURA
+10,000
+10,000
+102,403
+10.24
+10.24
+FUNSD
+199
+199
+1,542
+7.75
+7.75
+Kleister Charity
+2,169
+47,550
+8,897
+0.19
+4.10
+Kleister NDA
+337
+2,126
+696
+0.33
+2.07
+MP-DocVQA
+5,203
+57,643
+31,597
+0.55
+6.07
+SP-DocVQA
+266
+266
+419
+1.58
+1.58
+VRDU Ad Form
+641
+1,598
+22,506
+14.08
+35.11
+VRDU Reg. Form
+1,015
+2,083
+3,865
+1.86
+3.81
+XFUND
+1,393
+1,393
+16,653
+11.95
+11.95
+Total
+48,151
+237,437
+249,016
+1.05
+5.17
+In Figure 2 we show one example of the ﬁnal format of
+the dataset questions, including the rephrased version of the
+questions.
+3.3 Statistics & splits
+The dataset is split into training, validation, and test sets
+using an 80-10-10 split based on document count, ensuring
+that all questions related to a single document remain within
+the same set. Since the dataset comprises diverse sources
+with varying structures and question types, we propose our
+own split to ensure a balanced distribution of document lay-
+outs and question types across all sets. Table 2 provides an
+overview of the dataset’s size and source distribution, while
+detailed statistics can be found in the Supplementary Mate-
+rial.
+To achieve this balance, documents from each source
+dataset are sampled separately. Speciﬁcally, documents from
+Deepform are split in an 80-10-10 ratio, followed by docu-
+ments from FATURA, DUDE, and all other sources. The union
+of these individual splits yields the ﬁnal training, validation,
+and test sets, ensuring that all sets reﬂect the dataset’s overall
+diversity.
+Some of the pages annotated using the proposed algorithm
+and belonging to BoundingDocs are shown in Figures 3
+and 4 . For illustration purpose, colored rectangles are drawn
+around the ﬁelds corresponding to the correct answers to the
+questions.
+It should be noted, as previously mentioned, that for
+datasets such as Kleister, DUDE, and DocVQA, the test
+splits are not publicly available. Consequently, documents
+from these test splits are not included in our dataset. For
+datasets like FATURA and Deepform, which do not have
+predeﬁned splits, this issue does not arise. However, further
+discussion is needed regarding FUNSD, XFUND, and VRDU,
+as they do have deﬁned splits. In the case of FUNSD and
+XFUND, a portion of the documents from their test splits were
+included in the random process used to deﬁne the splits in
+BoundingDocs. As a result, some of these documents are
+part of the BoundingDocs training split. Speciﬁcally, out
+of the 38, 515 documents in the training split, 313 originate
+from the FUNSD/XFUND test sets, accounting for approx-
+imately 0.8%. Regarding VRDU, its repository provides
+multiple splits depending on the task of interest, meaning
+there is no single deﬁnitive test split. Therefore, VRDU has
+been treated similarly to FATURA and Deepform. This
+analysis informs users that incorporating BoundingDocs
+into training data does not prevent models from being eval-
+uated on benchmarks like DUDE, DocVQA, or Kleister.
+This leads to the conclusion that BoundingDocs can serve
+adualpurpose:itcanbeusedasapretrainingtoolwithoutsig-
+niﬁcant risk of contamination with established benchmarks,
+allowing these benchmarks to be employed for evaluating the
+resulting models. Additionally, BoundingDocs can func-
+tion as a benchmark itself for assessing models in a question
+answering setting, even for datasets and document types that
+were not originally designed for this task.
+3.4 Annotation assessment
+To provide insights into the dataset quality, we analyzed the
+frequency of multiple matches within a single page, as men-
+tioned in Section 3.2.2. We found that in approximately 20%
+of cases, the annotated value appeared more than once on
+the same page. However, this does not necessarily indicate
+that 20% of the dataset contains false positives. To further
+investigate this phenomenon, we conducted a manual audit
+of annotations with multiple matches. We randomly sampled
+20 pages containing at least one question with multiple valid
+answers, selecting one such question per page. We success-
+fully sampled 20 pages for most datasets, with the exception
+of FUNSD(19pages),SP-DocVQA(13pages),and FATURA
+123
+
+=== PAGE 8 ===
+454
+S. Giovannini et al.
+Fig. 3 Deepform page with bbox annotations.
+and VRDU Registration Form (0 pages for both). For
+each sampled page-question pair, we manually examined
+all annotated answer bounding boxes to verify whether all
+instances referred to the same logical answer or if some were
+unrelated occurrences of the same textual value. An anno-
+tation was considered correct only if all annotated answers
+corresponded to valid responses to the question, rather than
+being semantically unrelated occurrences of the same text.
+The results, reported in Table 3, reveal that approximately
+38% of questions with multiple answers per page contain at
+least one answer that is not logically related to the question.
+Extrapolating from this ﬁnding, we estimate that approxi-
+mately 7% of all annotations (38% of the 20% with multiple
+matches) may exhibit this issue. Examining the results by
+data type, we observe distinct patterns in annotation accu-
+racy. Acronyms achieve perfect accuracy (100%), as they
+are highly speciﬁc and rarely repeated for different purposes
+within documents. Named entities and currency values show
+moderateaccuracy(68.12%and70.00%,respectively),while
+dates perform slightly lower at 66.67%. Numbers exhibit
+the lowest accuracy rate (46.88%), as numerical values fre-
+quently appear in unrelated sections of documents such as
+page numbers, reference codes, or unrelated quantities. The
+“Other” category, which includes miscellaneous data types,
+shows an accuracy of 40.00%, indicating challenges in han-
+dling diverse or less structured information.
+3.5 Dataset examples
+In Fig. 3 (Deepform) and Fig. 4 (VRDU Registration
+Form) it is possible to analyze two pages the corresponding
+QA pairs are shown in Table 4. In Fig. 3 the extracted ﬁelds
+are the advertiser’s name and the gross amount for the various
+123
+
+=== PAGE 9 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+455
+Fig. 4 VRDU Registration Form page with bbox annotations.
+Table 3 Annotation quality statistics by data type for questions with
+multiple valid answers per page.
+Data Type
+Total
+✓
+%
+Currency
+20
+14
+70.00
+Date
+18
+12
+66.67
+Number
+32
+15
+46.88
+Acronym
+8
+8
+100.00
+Named entities
+69
+47
+68.12
+Other
+25
+10
+40.00
+Total
+172
+106
+61.63
+transmissions. In Fig. 4 the ﬁelds to be extracted are only two:
+the registrant name and the registration number.
+These two examples illustrate how, despite the large num-
+ber of documents in the collection, the potential amount of
+information present in the documents is underutilized, as the
+annotated ﬁelds are few compared to the entire body of the
+documents, indicating that the potential of this large docu-
+ment collection is not being properly exploited.
+To provide a concrete response to the issue raised in Sec-
+tion 3.2.2, as shown in Fig. 3, the value $119,000.00 has
+been detected and annotated four times on the page. The two
+entries on the left part of the page are certainly correct, as
+123
+
+=== PAGE 10 ===
+456
+S. Giovannini et al.
+Table 4 QA pairs of the examples in Figure 3 and Figure 4. The ﬁrst two refer to the Deepform sample and the last two to the VRDU
+Registration Form one.
+Template Question
+Rephrased Question
+Answer
+What is the Advertiser?
+Who is the advertiser?
+OBAMA FOR AMERICA
+What is the Gross Amount?
+What is the value of Gross Amount?
+$119,000.00
+What is the Registrant Name?
+What is the name of the registrant?
+Greenﬁeld & Kress P.A.
+What is the Registration Number?
+What is the registration number for the company?
+6294
+they refer to totals: the ﬁrst is related to the date and the sec-
+ond to the TV transmission. Regarding the values stacked on
+the right side of the page, the value beneath represents the
+sum of all those above it, and in this case, the numbers match.
+This validates the annotation, as the total refers to the same
+entity. If there were additional entries, only the total would
+be annotated, as the partial values would necessarily differ.
+Additional examples that provide a full overview of the
+entire variety of the dataset can be found in the Supplemen-
+tary Material.
+4 Experimental results
+Tables 5, 6, and 7 present our experimental results across the
+different datasets and model conﬁgurations. The ﬁne-tuning
+and testing pipeline implemented is summarized and plot-
+ted in Figure 5, which depicts the various types of prompts
+used depending on the model type: for vision models, we
+provided the image along with the question only, while for
+traditional LLMs, we used the OCR-extracted page text, the
+question, and, for some ablation, the bounding boxes of the
+text. Notably, all the ﬁne-tuning experiments described were
+conducted using only 10% of the training split and evaluated
+on the proposed test split.
+The three tables follow the same format, where the
+columnscorrespondtothedocumentsintheBoundingDocs
+test set derived from the respective dataset. All models and
+conﬁgurations have been evaluated on the proposed test split.
+It is crucial to emphasize that these results are not directly
+comparable to established benchmarks (e.g., DocVQA or
+DUDE) or to performances reported in other studies using
+the same datasets. Additionally, comparisons between dif-
+ferent model types (e.g., LLMs vs. vision LLMs) should
+be avoided due to differences in prompting techniques and
+LoRA ﬁne-tuning parameters (details in the Supplementary
+Material). The test split is speciﬁcally determined by our
+question-ﬁltering strategy and dataset construction method-
+ology. Therefore, these results primarily serve to illustrate
+the dataset’s difﬁculty and provide a baseline, rather than to
+position our approach relative to the state of the art.
+4.1 Evaluation metrics
+We use the standard metric ANLS* [43], which supports
+a wider range of tasks including line-item extraction and
+document-processing tasks.
+For each model-dataset pair in our results, we report two
+key measurements: the ANLS* value (rescaled between 0
+and 100 for easier reading) and the percentage of non-JSON
+parsable responses relative to the total number of queries. The
+weighted average provides a comprehensive overview based
+on the number of examples for each dataset. For ANLS*,
+higher values indicate better performance, while for non-
+parsable responses, lower percentages are preferable. In the
+tables, the best values for each dataset are in bold, whike the
+second-best values are underlined.
+4.2 Prompt construction
+In this study, each question in the dataset may have answers
+distributed across multiple pages. Processing multi-page
+documents poses signiﬁcant computational challenges, as
+noted in works such as Multi-PageDocVQA [14]. Addi-
+tionally, the context size limitations of smaller LLMs make
+encoding all pages into a single prompt impractical. To
+address these constraints, we adopt an atomic approach, pro-
+cessingeachrelevantpageseparatelyratherthanconstructing
+a single comprehensive prompt.
+Our experiments follow the ‘oracle’ setup described in
+[14], where only the page containing the answer is pro-
+vided as input to the model. This setup isolates the model’s
+answering capabilities from variations in input sequence
+length, serving as a theoretical upper bound on performance-
+assuming the method correctly identiﬁes the relevant page.
+Asaresult,thesebaselinesreﬂecttheintrinsicdifﬁcultyofthe
+questions and document layouts rather than external factors
+such as content ﬁltering. Nevertheless, the dataset includes
+complete documents, allowing users to implement and eval-
+uate multi-page methods, which must also handle the task of
+identifying relevant pages. For questions requiring informa-
+tion from multiple pages, we generate independent prompts
+for each relevant page, appending the same question to each.
+For instance, if a ﬁve-page document contains relevant infor-
+mation on pages 2 and 4, we create two separate prompts: one
+123
+
+=== PAGE 11 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+457
+Table 5 Baseline models. ANLS* scores and JSON parsing error percentages across datasets for baseline models on our test split. ANLS* scores measure accuracy in answering document questions,
+while the bottom value in each cell shows JSON parsing errors, indicating output consistency. The "W. Avg" column provides a weighted average across datasets, with bold and underlined values
+marking the top two scores per dataset.
+Model
+Deepform
+DUDE
+FATURA
+FUNSD
+XFUND
+SP-VQA
+Kl. Char.
+Kl. NDA
+MP-VQA
+VRDU Ad
+VRDU Reg
+W. Avg.
+Mistral-7B-v0.3
+42.3
+9.1
+6.8
+14.3
+6.1
+22.2
+21.2
+32.5
+12.5
+23.1
+28.6
+22.4
+0.22%
+16.19%
+1.03%
+1.23%
+15.85%
+10.00%
+4.84%
+10.45%
+7.86%
+0.22%
+1.52%
+3.32%
+Llama-3-8B
+83.9
+60.0
+35.6
+70.5
+38.4
+73.7
+72.8
+25.3
+62.4
+71.2
+37.9
+62.9
+0.47%
+5.52%
+0.12%
+3.68%
+9.55%
+2.50%
+2.93%
+6.72%
+3.54%
+0.65%
+6.09%
+1.77%
+Phi-3.5-3.8B
+66.4
+45.2
+24.7
+55.8
+51.3
+50.2
+63.9
+48.1
+54.4
+59.2
+57.9
+51.6
+6.79%
+64.76%
+7.40%
+5.52%
+2.07%
+52.50%
+2.07%
+0.00%
+52.82%
+26.80%
+4.31%
+20.37%
+Claude 3.7 Sonnet
+62.2
+72.4
+52.5
+78.6
+54.2
+85.8
+76.8
+16.6
+76.9
+90.6
+79.6
+65.7
+0.00%
+0.00%
+0.00%
+1.22%
+0.00%
+0.00%
+0.00%
+0.00%
+0.04%
+0.00%
+0.00%
+0.02%
+Qwen2-VL-2B
+35.3
+60.0
+36.1
+71.6
+48.7
+88.3
+48.7
+28.5
+68.1
+52.3
+62.3
+45.8
+0.57%
+0.38%
+0.05%
+1.23%
+1.41%
+0.00%
+0.29%
+1.49%
+1.21%
+1.25%
+0.00%
+0.54%
+Qwen2-VL-7B
+44.7
+69.3
+47.5
+73.2
+59.7
+84.5
+70.4
+20.1
+72.9
+56.1
+70.0
+55.6
+0.04%
+0.00%
+3.44%
+0.00%
+0.37%
+0.00%
+0.11%
+0.00%
+0.14%
+0.09%
+0.00%
+0.93%
+123
+
+=== PAGE 12 ===
+458
+S. Giovannini et al.
+Table 6 Ablation study. ANLS* scores and JSON parsing error percentages across datasets for each prompting conﬁguration on our test split. ANLS* scores measure accuracy in answering
+document questions, while the bottom value in each cell shows JSON parsing errors, indicating output consistency. The "W. Avg" column provides a weighted average across datasets, with bold
+and underlined values marking the top two scores per dataset.
+Model
+Deepform
+DUDE
+FATURA
+FUNSD
+XFUND
+SP-VQA
+Kl. Char.
+Kl. NDA
+MP-VQA
+VRDU Ad
+VRDU Reg
+W. Avg.
+Templ.-Templ.
+97.7
+70.5
+99.9
+75.7
+70.1
+75.3
+91.9
+66.3
+75.5
+96.7
+96.5
+91.3
+0.00%
+0.00%
+0.00%
+0.61%
+0.61%
+0.00%
+0.00%
+0.00%
+0.06%
+0.00%
+0.00%
+0.04%
+Templ.-Reph.
+96.8
+70.9
+91.5
+71.1
+68.8
+70.2
+92.5
+63.7
+73.6
+87.1
+96.0
+87.8
+3.75%
+1.14%
+0.23%
+0.00%
+1.53%
+2.50%
+0.40%
+1.49%
+1.03%
+0.13%
+0.00%
+1.62%
+Reph.-Templ.
+97.7
+70.4
+99.7
+71.8
+67.6
+76.6
+91.8
+61.1
+73.6
+96.2
+95.2
+90.7
+0.00%
+0.00%
+0.00%
+0.00%
+0.67%
+0.00%
+0.00%
+0.00%
+0.06%
+0.00%
+0.00%
+0.04%
+Reph.-Reph.
+97.1
+71.2
+99.8
+72.3
+68.2
+76.1
+92.3
+64.4
+73.3
+96.4
+95.7
+90.6
+0.00%
+0.00%
+0.00%
+0.00%
+0.92%
+0.00%
+0.00%
+0.00%
+0.07%
+0.00%
+0.00%
+0.04%
+Reph.-Reph.-bbox
+97.7
+73.4
+99.3
+78.8
+71.2
+82.1
+92.8
+61.6
+76.0
+96.4
+96.7
+91.6
+5.01%
+4.95%
+5.97%
+17.79%
+10.34%
+5.00%
+4.34%
+0.75%
+7.16%
+1.47%
+0.51%
+5.64%
+Reph.-Reph.-bbox
+97.7
+72.1
+99.3
+74.7
+70.3
+83.0
+92.9
+61.9
+75.8
+96.1
+96.8
+91.3
+w/ regex
+0.80%
+0.38%
+4.50%
+4.29%
+0.98%
+0.00%
+0.03%
+0.00%
+0.35%
+0.26%
+0.00%
+1.53%
+Table 7 Fine-tunings. ANLS* scores and JSON parsing error percentages across datasets for each ﬁne-tuned model on our test split. ANLS* scores measure accuracy in answering document
+questions, while the bottom value in each cell shows JSON parsing errors, indicating output consistency. The "W. Avg" column provides a weighted average across datasets, with bold and underlined
+values marking the top two scores per dataset.
+Model
+Deepform
+DUDE
+FATURA
+FUNSD
+XFUND
+SP-VQA
+Kl. Char.
+Kl. NDA
+MP-VQA
+VRDU Ad
+VRDU Reg
+W. Avg.
+Mistral-7B-v0.3
+97.7
+72.1
+99.3
+74.7
+70.3
+83.0
+92.9
+61.9
+75.8
+96.1
+96.8
+91.3
+0.80%
+0.38%
+4.50%
+4.29%
+0.98%
+0.00%
+0.03%
+0.00%
+0.35%
+0.26%
+0.00%
+1.53%
+Qwen2-VL-2B
+88.0
+58.9
+97.2
+72.9
+62.4
+79.7
+74.1
+45.6
+66.1
+75.9
+79.9
+82.1
+0.05%
+0.00%
+0.30%
+0.61%
+0.92%
+0.00%
+0.43%
+0.49%
+0.20%
+0.78%
+0.00%
+0.26%
+Qwen2-VL-7B
+90.6
+71.0
+98.5
+75.6
+68.5
+84.2
+82.8
+40.9
+74.9
+81.2
+86.0
+86.6
+0.01%
+0.76%
+0.00%
+0.61%
+0.43%
+0.00%
+0.43%
+0.00%
+0.28%
+0.00%
+0.51%
+0.13%
+123
+
+=== PAGE 13 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+459
+incorporating content in page 2 and the other incorporating
+page 4, both paired with the same question.
+Each prompt consists of three components: the document
+text, the question, and a given answer format (JSON) to facil-
+itate structured data extraction.
+4.3 Baseline models
+We evaluated three popular open-weight models as base-
+lines: Mistral 7B Instruct v0.3 [40], Llama 3
+8B Instruct [44], and Phi 3.5 3.8B Instruct
+[45]. These models were chosen for their established per-
+formance and recognition in the NLP community.
+In addition to these text-only models, we also tested
+three multimodal models capable of processing both text and
+images: Claude 3.7 Sonnet [46] and Qwen2-VL [47]
+in its 2B and 7B variants. This selection ensures a diverse
+range of model types and sizes, allowing for a comprehensive
+evaluation. These tests served to establish an initial bench-
+mark and are reported in Table 5.
+Through a qualitative analysis based on the results of
+our preliminary experiments and observations of dataset
+examples, we identiﬁed the most complex layouts and the
+sources for which the proposed task is particularly chal-
+lenging. Notably, Deepform and VRDU Ad Buy Form
+contain numerous similar values that can correspond to
+different entries in the ﬁnancial report, complicating infor-
+mation extraction. Despite its seemingly simple layout,
+Kleister NDA also presents signiﬁcant challenges. This
+suggests that the lack of a clear structure - characteristic of
+contract pages with dense and compact text - impedes the
+models’ ability to retrieve highly speciﬁc information. A
+comprehensive overview of the various sources that com-
+pose BoundingDocs can be found in the Supplementary
+Material.
+For investigating the impact of question formulation, we
+selected the Mistral 7B v0.3 (base version) for ﬁne-
+tuning (details in the Supplementary Material). Results are
+reported in Table 6. We evaluated two types of questions-
+template-based (simple, consistent format) and rephrased
+(more varied, user-friendly language). Each model was tested
+with both question types, resulting in four experimental con-
+ditions:
+• Template-Template: Model trained and tested with
+template-based questions.
+• Template-Rephrased: Model trained with template-
+based questions, tested with rephrased questions.
+• Rephrased-Template: Model trained with rephrased
+questions, tested with template-based questions.
+• Rephrased-Rephrased: Model trained and tested with
+rephrased questions.
+4.4 Incorporating bounding box information
+To assess the impact of spatial information, we incorpo-
+rated bounding box coordinates into the prompts, denoted
+as Reph.-Reph.-bbox in Table 6. Each Textract-
+extracted text element in the prompt was annotated with
+bounding box coordinates, enabling the model to reference
+spatial context. In this conﬁguration, the model was speciﬁ-
+cally ﬁne-tuned to produce more complex JSON outputs that
+include not only the answer, but also a comprehensive list of
+all locations where the extracted value appears in the docu-
+ment. While this approach provided richer spatial awareness,
+the requirement to generate more structured outputs intro-
+duced additional complexity that led to increased parsing
+errors.
+To address these parsing challenges, we implemented the
+Reph.-Reph.-bbox w/regexconﬁguration,whichintro-
+duced a regex-based post-processing step. When the model’s
+structured JSON output was not parsable due to format
+inconsistencies or generation errors, the regex extraction
+mechanism served as a fallback solution to retrieve the target
+value, effectively maintaining the beneﬁts of spatial informa-
+tion while mitigating the impact of parsing failures.
+4.5 Fine-Tunings
+Table 7 presents the ﬁne-tuning results for a subset of the
+models listed in Table 5. In these experiments, models were
+trained and tested using rephrased questions. For Mistral,
+the prompt included both the page content and bounding
+boxes (corresponding to the Reph.-Reph.-bbox row in
+the Table 6), whereas the two Qwen models received only
+the page image and the rephrased question as input. It is
+important to noice that these results are not directly compa-
+rable across models, as the ﬁne-tuning settings for Mistral
+and Qwen differ signiﬁcantly (details on ﬁne-tuning settings
+can be found in the Supplementary Material.) Once again,
+theseresultsarenotintendedfordirectcomparison,butrather
+to provide a baseline for the expected performance on this
+dataset after a ﬁne-tuning of various models.
+4.6 Answer localization
+In this article, we investigate the unique feature of
+BoundingDocs, bounding boxes, speciﬁcally to evaluate
+whether their inclusion can enhance document understand-
+ing. This can be achieved either by incorporating bounding
+box information as an additional input in textual prompts
+for off-the-shelf models, or by leveraging it for ﬁne-tuning.
+Additionally, BoundingDocs can serve as a benchmark
+for assessing a model’s ability to accurately predict the loca-
+tion of an answer within a page. Our experiments, reported
+in [48], show that Claude 4 Sonnet achieves an aver-
+123
+
+=== PAGE 14 ===
+460
+S. Giovannini et al.
+Fig. 5 Experimental framework
+showing the different prompting
+strategies implemented for
+vision and text language models.
+Vision LLMs (blue) are
+prompted with images and
+rephrased questions, while text
+LLMs (red) are prompted with
+three different conﬁgurations of
+page content and questions.
+Some models underwent
+supervised ﬁne-tuning before
+testing, while others were
+evaluated directly.
+age IoU of 0.031 on the BoundingDocs test set, while
+Qwen2.5-VL-7B reaches 0.048. These results demon-
+strate that, although off-the-shelf models perform reasonably
+well in retrieving information in a zero-shot setting, their
+capacity to indicate the precise location of the answer is
+effectively nonexistent, which signiﬁcantly undermines the
+interpretability of their responses.
+4.7 Research question answers
+Our experimental ﬁndings provide clear answers to our
+research questions, deﬁned in Section 1:
+• RQ1 - Dataset Uniﬁcation: By standardizing data from
+varioussources(e.g.,receipts,invoices,forms)intoacon-
+sistent Question-Answering format, models are exposed
+to a wide range of document layouts and content types,
+enhancing their training efﬁciency. This uniﬁcation sig-
+niﬁcantly streamlines the ﬁne-tuning process, making it
+easier to handle diverse document sources. Moreover,
+ﬁne-tuned models show signiﬁcant improvements over
+instruct models, quantitatively conﬁrming that expo-
+sure to varied document formats and layouts enhances
+the model’s ability to extract information, as can be seen
+comparing the overall results in Table 5 and Table 7.
+• RQ2 - Question Formulation Impact: The study
+revealed signiﬁcant insights into how different question
+formulation strategies affect document comprehension
+and information extraction. As reported in Table 6, the
+Template-Template conﬁguration demonstrated
+superior performance by leveraging structured, con-
+sistent question patterns. However, the Rephrased-
+Rephrased conﬁguration emerged as a particularly
+robust solution, maintaining high ANLS* scores (e.g.,
+99.8 on FATURA, 96.4 on VRDU-Ad) while achieving
+0% parsing errors across most datasets. Crucially, unlike
+other conﬁgurations, its performance remained stable
+regardless of whether the input followed a template or an
+augmented version, indicating that the model had devel-
+oped a greater adaptability to diverse question structures.
+Notably, the Template-Rephrased setup performed
+least effectively, highlighting the challenges in transition-
+ing from template-trained models to complex question
+structures.
+• RQ3 - Layout Information: The incorporation of spatial
+information in prompts yielded measurable improve-
+ments in model performance, as reported in Table 7. The
+Reph-Reph-bbox conﬁguration achieved the high-
+est weighted average ANLS* (91.6) across all datasets,
+demonstrating consistent improvements over conﬁgura-
+tions without spatial information. Notable gains were
+observed in complex document understanding tasks, with
+ANLS* scores increasing to 71.2 on XFUND and 83.0
+on SP-VQA. While the initial implementation showed
+increased parsing errors, the addition of regex-based
+post-processing (Reph-Reph-bbox w/regex) suc-
+cessfully maintained high performance while reducing
+error rates to competitive levels (1.53% weighted aver-
+age).
+5 Conclusions
+The paper addresses the growing need for evaluating LLMs
+inDocument AI tasks byproposingauniﬁeddataset designed
+for document QAtakingintoaccount thepositionof answers’
+text in the document. Baseline experiments using off-the-
+shelf LLMs demonstrate the challenges of applying generic
+123
+
+=== PAGE 15 ===
+BoundingDocs: a Uniﬁed Dataset for Document Question…
+461
+modelstospecializedDocumentAItasks;theperformanceof
+instruct models reveal clear limitations in generating correct
+and well-structured answers.
+The paper reveals that while off-the-shelf LLMs strug-
+gle with document-speciﬁc tasks, targeted ﬁne-tuning can
+signiﬁcantly improve their capabilities. Rephrasing ques-
+tions using LLMs improves the models’ understanding and
+response accuracy across different question formulations,
+suggesting that LLMs beneﬁt from exposure to diverse lin-
+guistic variations during training. Incorporating layout and
+positional information into the prompt led to improved
+accuracy across most datasets, but at the cost of a higher per-
+centage of non-parsable responses, reﬂecting the increased
+complexity of generating JSON outputs that include bound-
+ing box information.
+In future work, we aim to explore a wider range of prompt-
+ing techniques tailored to different model families. Among
+themanytypesofinformationavailablein BoundingDocs,
+a key challenge is determining the optimal combination
+for effective information extraction. Open questions include
+whether images can fully replace textual content in prompts,
+whether bounding boxes remain essential even when using
+images, and how different modalities interact to enhance
+model performance. The constructed dataset and the experi-
+mental results provide a solid foundation for future research
+in Document QA. Fine-tuning models with enriched prompts
+has shown promising improvements.
+Supplementary Information
+The online version contains supplemen-
+tary material available at https://doi.org/10.1007/s10032-025-00563-
+5.
+Author Contributions S.G. wrote the entire manuscript. F.C., A.G., and
+S.M. equally contributed by providing guidance for the research and
+critically reviewing the manuscript. All authors reviewed and approved
+the ﬁnal version of the manuscript.
+Funding Open access funding provided by Università degli Studi di
+Firenze within the CRUI-CARE Agreement.
+Data Availability The datasets analyzed for this work are accessible
+through the references cited in the manuscript. Our dataset is published
+at the URL mentioned in our manuscript.
+Declarations
+Competing interests The authors declare no competing interests.
+Open Access This article is licensed under a Creative Commons
+Attribution 4.0 International License, which permits use, sharing, adap-
+tation, distribution and reproduction in any medium or format, as
+long as you give appropriate credit to the original author(s) and the
+source, provide a link to the Creative Commons licence, and indi-
+cate if changes were made. The images or other third party material
+in this article are included in the article’s Creative Commons licence,
+unless indicated otherwise in a credit line to the material. If material
+is not included in the article’s Creative Commons licence and your
+intended use is not permitted by statutory regulation or exceeds the
+permitteduse,youwillneedtoobtainpermissiondirectlyfromthecopy-
+right holder. To view a copy of this licence, visit http://creativecomm
+ons.org/licenses/by/4.0/.
+References
+1. Mihalcea, R., Tarau, P.: TextRank: Bringing order into text. In:
+Lin, D., Wu, D. (eds.) Proc. Conf. Empirical Methods in Natural
+Language Processing, pp. 404–411. ACL, Barcelona, Spain (2004).
+https://aclanthology.org/W04-3252
+2. Devlin, J., et al.: BERT: pre-training of deep bidirectional trans-
+formers for language understanding. In: Proceedings of the 2019
+NAACL-HLT, Volume 1 (Long and Short Papers), pp. 4171–4186.
+Association for Computational Linguistics, (2019). https://doi.org/
+10.18653/V1/N19-1423
+3. OpenAI: GPT-4 technical report. CoRR arXiv: abs/2303.08774
+(2023) https://doi.org/10.48550/ARXIV.2303.08774
+4. Nawei, C., Blostein, D.: A survey of document image classiﬁcation
+classiﬁer: problem statement, architecture and performance eval-
+uation. IJDAR 10, 1–16 (2007). https://doi.org/10.1007/s10032-
+006-0020-2
+5. Wang, J., et al.: Towards robust visual information extraction in
+real world: New dataset and novel solution. In: AAAI 2021, pp.
+2738–2745. AAAI Press, (2021). https://doi.org/10.1609/AAAI.
+V35I4.16378
+6. Mathew, M., Karatzas, D., Jawahar, C.V.: Docvqa: A dataset for
+VQA on document images. In: WACV, pp. 2199–2208. IEEE,
+(2021). https://doi.org/10.1109/WACV48630.2021.00225
+7. Wang, W., et al.: Layout and task aware instruction prompt for zero-
+shot document image question answering. CoRR (2023) https://
+doi.org/10.48550/ARXIV.2306.00526
+8. Lamott, M., et al.: Lapdoc: Layout-aware prompting for docu-
+ments. In: ICDAR 2024. LNCS, vol. 14807, pp. 142–159. Springer,
+(2024). https://doi.org/10.1007/978-3-031-70546-5_9
+9. Gemelli, A., Marinai, S., Pisaneschi, L., Santoni, F.: Datasets and
+annotations for layout analysis of scientiﬁc articles. IJDAR 27,
+683–705 (2024). https://doi.org/10.1007/s10032-024-00461-2
+10. Wang, Z., et al.: VRDU: A benchmark for visually-rich document
+understanding. In: Proc. 29th ACM SIGKDD. KDD ’23. ACM,
+(2023). https://doi.org/10.1145/3580305.3599929
+11. Project
+DeepForm:
+DeepForm.
+https://github.com/project-
+deepform/deepform
+12. Landeghem, J.V. et al.: Document understanding dataset and eval-
+uation (dude). In: Proc. ICCV, pp. 19471–19483. IEEE, (2023).
+https://doi.org/10.1109/ICCV51070.2023.01789
+13. Limam, M., et al.: FATURA: A multi-layout invoice image dataset
+for document analysis and understanding, vol. (2023). https://doi.
+org/10.48550/ARXIV.2311.11856
+14. Tito, R., Karatzas, D., Valveny, E.: Hierarchical multimodal trans-
+formers for multipage DocVQA. Pattern Recogn. 144, 109834
+(2023). https://doi.org/10.1016/j.patcog.2023.109834
+15. Jaume, G., et al.: Funsd: A dataset for form understanding in noisy
+scanned documents. In: 2nd Int. Workshop OST@ICDAR, pp. 22–
+25. IEEE, (2019). https://doi.org/10.1109/ICDARW.2019.10029
+16. Stanisławek,T.,etal.:Kleister:Keyinformationextractiondatasets
+involving long documents with complex layouts. In: Proc. ICDAR,
+vol. 12821, pp. 564–579. Springer, (2021). http://dx.doi.org/10.
+1007/978-3-030-86549-8_36
+17. Huang, Z., et al.: ICDAR2019 competition on scanned receipt
+OCR and information extraction. In: Proc. ICDAR, pp. 1516–1520.
+IEEE, (2019). https://doi.org/10.1109/ICDAR.2019.00244
+18. Xu, Y., et al.: XFUND: A benchmark dataset for multilingual visu-
+ally rich form understanding. In: ACL (Findings), pp. 3214–3224.
+ACL, (2022). https://aclanthology.org/2022.ﬁndings-acl.253
+123
+
+=== PAGE 16 ===
+462
+S. Giovannini et al.
+19. Nassar, A., et al.: Tableformer: Table structure understanding with
+transformers. In: CVPR, pp. 4604–4613. IEEE, (2022). https://doi.
+org/10.1109/CVPR52688.2022.00457
+20. Park, S., et al.: Cord: A consolidated receipt dataset for post-ocr
+parsing. In: Document Intelligence Workshop at Neural Informa-
+tion Processing Systems (2019). https://github.com/clovaai/cord
+21. Universitá
+degli
+Studi
+di
+Trieste:
+Ghega
+Dataset.
+https://
+machinelearning.inginf.units.it/data-and-tools/ghega-dataset
+22. HuggingFace: Docmatix - A huge dataset for Document Visual
+Question
+Answering.
+https://huggingface.co/blog/docmatix
+(2024)
+23. Zmigrod, R., et al.: "what is the value of templates?" rethinking
+document information extraction datasets for llms. In: Al-Onaizan,
+Y., Bansal, M., Chen, Y. (eds.) EMNLP 2024, USA, pp. 13162–
+13185. Association for Computational Linguistics, (2024). https://
+aclanthology.org/2024.ﬁndings-emnlp.770
+24. Rodriguez,J.A.,et al.: Bigdocs: Anopenandpermissively-licensed
+dataset for training multimodal models on document and code
+tasks. CoRR (2024) https://doi.org/10.48550/ARXIV.2412.04626
+25. Hu, A., et al.: mPLUG-DocOwl 1.5: Uniﬁed structure learning for
+ocr-free document understanding, vol. (2024). https://doi.org/10.
+48550/ARXIV.2403.12895
+26. Garncarek, Ł., et al.: LAMBERT: Layout-Aware Language Mod-
+eling for Information Extraction, pp. 532–547. Springer, (2021).
+https://doi.org/10.1007/978-3-030-86549-8_34
+27. Liu, Y., et al.: Roberta: A robustly optimized bert pretraining
+approach, vol. (2019). https://arxiv.org/abs/1907.11692
+28. Perot, V., et al.: Lmdx: Language model-based document informa-
+tionextractionandlocalization.In:ProceedingsofACL(Findings),
+pp. 15140–15168. Association for Computational Linguistics,
+(2024).https://doi.org/10.18653/V1/2024.FINDINGS-ACL.899
+29. Wang, D., et al.: Docllm: A layout-aware generative language
+model for multimodal document understanding. In: Proceedings of
+the 62nd ACL, pp. 8529–8548. Association for Computational Lin-
+guistics, (2024). https://doi.org/10.18653/V1/2024.ACL-LONG.
+463
+30. Numind: NuExtract 1.5 - Multilingual, Inﬁnite Context, Still
+Small, and Better than GPT-4o! https://numind.ai/blog/nuextract-
+1-5---multilingual-inﬁnite-context-still-small-and-better-than-
+gpt-4o (2024)
+31. Dodge, J., et al.: Documenting large webtext corpora: A case
+study on the colossal clean crawled corpus. In: Proceedings of
+the 2021 EMNLP, pp. 1286–1305. Association for Computational
+Linguistics, (2021). https://doi.org/10.18653/V1/2021.EMNLP-
+MAIN.98
+32. Dosovitskiy, A., et al.: An image is worth 16x16 words: Trans-
+formers for image recognition at scale. In: ICLR. OpenReview.net,
+(2021). https://openreview.net/pdf?id=YicbFdNTTy
+33. Kim, G., et al.: Ocr-free document understanding transformer. In:
+ECCV. LNCS, vol. 13688, pp. 498–517. Springer, (2022). https://
+doi.org/10.1007/978-3-031-19815-1_29
+34. Davis, B., et al.: End-to-end document recognition and understand-
+ing with dessurt. In: ECCV 2022 Workshops, Proceedings, Part IV.
+LNCS, vol. 13804, pp. 280–296. Springer, (2022).https://doi.org/
+10.1007/978-3-031-25069-9_19
+35. Huang, Y., et al.: Layoutlmv3: Pre-training for document ai with
+uniﬁed text and image masking. In: MM ’22: The 30th ACM Inter-
+national Conference on Multimedia, Lisboa, Portugal, October 10
+- 14, 2022, pp. 4083–4091. ACM, (2022).https://doi.org/10.1145/
+3503161.3548112
+36. Mathew, M., et al.: InfographicVQA. In: WACV, pp. 2582–2591.
+IEEE, (2022). https://doi.org/10.1109/WACV51458.2022.00264
+37. Tanaka, R., et al.: Slidevqa: A dataset for document visual ques-
+tion answering on multiple images. In: Williams, B., Chen, Y.,
+Neville, J. (eds.) AAAI 2023, pp. 13636–13645. AAAI Press,
+(2023). https://doi.org/10.1609/AAAI.V37I11.26598
+38. Tanaka, R., et al.: Visualmrc: Machine reading comprehension on
+documen images. In: AAAI 2021, pp. 13878–13888. AAAI Press,
+(2021). https://doi.org/10.1609/AAAI.V35I15.17635
+39. Amazon Web Services: Amazon Textract. https://aws.amazon.
+com/it/textract/
+40. Jiang, A.Q., et al.: Mistral 7b, vol. (2023). https://doi.org/10.
+48550/ARXIV.2310.06825
+41. Mistral AI: Mistral Large: Our Flagship Model (2024). https://
+mistral.ai/news/mistral-large/
+42. Mistral AI: Mixtral of Experts: A High-Quality Sparse Mixture-of-
+Experts Model (2023). https://mistral.ai/news/mixtral-of-experts/
+43. Peer, D., et al.: Anls* – a universal document processing metric for
+generative large language models. CoRR (2024) https://doi.org/10.
+48550/ARXIV.2402.03848
+44. Touvron, H., et al.: Llama: Open and efﬁcient foundation language
+models, vol. (2023). https://doi.org/10.48550/ARXIV.2302.13971
+45. Abdin, M., et al.: Phi-3 technical report: A highly capable language
+model locally on your phone, vol. (2024). https://doi.org/10.48550/
+ARXIV.2404.14219
+46. Anthropic: Claude 3.7 Sonnet (2025). https://www.anthropic.com/
+claude/sonnet
+47. Wang,P.,etal.:Qwen2-vl:Enhancingvision-languagemodel’sper-
+ception of the world at any resolution. CoRR arXv: (2024) https://
+doi.org/10.48550/ARXIV.2409.12191
+48. Chen, A., Giovannini, S., Gemelli, A., Coppini, F., Marinai, S.:
+TowardsReliableandInterpretableDocumentQuestionAnswering
+via VLMs (2025). https://arxiv.org/abs/2509.10129
+Publisher’s Note Springer Nature remains neutral with regard to juris-
+dictional claims in published maps and institutional afﬁliations.
+123

@@ -1,0 +1,2750 @@
+=== PAGE 1 ===
+LiGT: Layout-infused Generative Transformer for
+Visual Question Answering on Vietnamese
+Receipts
+Thanh-Phong Le1,2, Trung Le Chi Phan1,2,
+Nghia Hieu Nguyen1,2, Kiet Van Nguyen1,2*
+1Faculty of Information Science and Engineering, University of
+Information Technology, Ho Chi Minh City, Vietnam.
+2Vietnam National University, Ho Chi Minh City, Vietnam.
+*Corresponding author(s). E-mail(s): kietnv@uit.edu.vn;
+Contributing authors: 21520395@gm.uit.edu.vn;
+21522725@gm.uit.edu.vn; nghiangh@uit.edu.vn;
+Abstract
+Purpose: Document Visual Question Answering (document VQA) challenges
+multimodal systems to holistically handle textual, layout, and visual modali-
+ties to provide appropriate answers. Document VQA has gained popularity in
+recent years due to the increasing amount of documents and the high demand
+for digitization. Nonetheless, most of document VQA datasets are developed in
+high-resource languages such as English.
+Methods: In this paper, we present ReceiptVQA (Receipt Visual Question
+Answering), the initial large-scale document VQA dataset in Vietnamese dedi-
+cated to receipts, a document kind with high commercial potentials. The dataset
+encompasses 9,000+ receipt images and 60,000+ manually annotated question-
+answer pairs. In addition to our study, we introduce LiGT (Layout-infused
+Generative Transformer), a layout-aware encoder-decoder architecture designed
+to leverage embedding layers of language models to operate layout embeddings,
+minimizing the use of additional neural modules.
+Results: Experiments on ReceiptVQA show that our architecture yielded
+promising performance, achieving competitive results compared with outstand-
+ing baselines. Furthermore, throughout analyzing experimental results, we found
+evident patterns that employing encoder-only model architectures has consider-
+able disadvantages in comparison to architectures that can generate answers. We
+1
+arXiv:2502.19202v2  [cs.CL]  7 Mar 2025
+
+=== PAGE 2 ===
+also observed that it is necessary to combine multiple modalities to tackle our
+dataset, despite the critical role of semantic understanding from language models.
+Conclusion: We hope that our work will encourage and facilitate future devel-
+opment in Vietnamese document VQA, contributing to a diverse multimodal
+research community in the Vietnamese language.
+Keywords: Visual Question Answering, Low-resource Languages, Multimodal
+Learning, Document Understanding
+1 Introduction
+Visual Question Answering (VQA) [1] is a multimodal task aiming to create sys-
+tems capable of answering questions based on visual information. VQA research, over
+the past few years, has gained remarkable popularity, involving various domains and
+variants [2, 3]. Correspondingly, there has been an increasing interest in VQA on doc-
+ument images (document VQA) [4] due to the proliferation of documents, e.g. forms,
+receipts, and resumes, and the high digitization demand in modern environments.
+Document VQA has become not only a crucial task for the industry but also
+a multimodal challenge, wherein a machine needs to simultaneously process visual,
+textual, and layout information from document images while referring to the questions.
+Document images are specifically characterized by a remarkable density of text and
+a variety of formats. The text is structurally allocated in different areas, constituting
+a diversity of 2D spatial layouts depending on its document type. For this reason,
+studies in document VQA have proposed many datasets, often designed to tackle some
+particular kinds of documents [4–7].
+Among various documents, receipts, the papers proving that payment or delivery
+has been completed, have great commercial potential. Receipt images can be utilized
+for many purposes, such as efficient archiving on family/personal scales, document
+retrieval, and document analytics. To this end, there have been studies focusing on
+localizing, extracting, and parsing text on receipt images [8, 9]. However, in practice,
+most individuals opt for interactive features such as asking questions to get particu-
+lar information rather than seeking texts extracted from the image. Thus, the VQA
+task stands as a potential extension toward user-friendly applications and services for
+documents, specifically for receipts.
+Recently, inspired by the rapid development of multimodal learning (MML), many
+studies have tackled VQA task in Vietnamese, a low-resource language, encompassing
+dataset creations [10, 11], competitions [12], and methodologies [11, 13, 14]. Nonethe-
+less, much of the current literature pays particular attention to either conventional
+VQA [1] or scene text VQA [15, 16], and there have been few attempts to investigate
+VQA on document images.
+In this study, we introduce a large-scale Vietnamese document VQA dataset for
+receipts, called ReceiptVQA, including 64,812 question-answer (QA) pairs annotated
+from 9,500 receipt images. All dataset samples are manually annotated by a large
+2
+
+=== PAGE 3 ===
+resource of crowd-workers, and investigated on a scheme of answering natural ques-
+tions about receipt content by using verbatim text spans extracted from their images.
+In addition, most of the images are unscanned and captured by mobile phones that
+align with the context of users analyzing documents with portable devices. Also,
+further statistical analysis of the dataset found its specific features and interesting
+linguistic phenomena when people inquire about receipt content.
+In addition to our work, we present Layout-infused Generative Transformer
+(LiGT), a novel encoder-decoder transformer-based architecture extending the layout
+understanding capability of pretrained language models. Due to the text-dense char-
+acteristic of the document domain, we perceive that the relationship between texts
+and their 2D locations could also be associated with the 2D areas containing them. For
+this reason, instead of using numeric locations like previous layout approaches [17–
+22], we separate the examined 2D area into quarters and transform the OCR (Optical
+Character Recognition) texts’ locations into hashed values for representing the area
+they belong to. The process is recursively executed throughout multiple hashing levels,
+constituting layout representations from more general to more specific. Furthermore,
+as pretrained language models could endure instability when being added with new
+neural modules, we minimize the usage of additional neural factors via leveraging
+pretrained embedding layers to operate 2D layout embeddings. This approach is pro-
+jected to enhance the feasibility of our architecture, facilitating the adaptability to
+process the layout modality.
+Our principal contributions are as follows.
+1. We propose ReceiptVQA, the first large-scale document VQA dataset for the Viet-
+namese multimodal learning community, manually annotated for Vietnamese VQA
+on the receipt domain. Our dataset is publicly available exclusively for research
+purposes 1.
+2. We developed a novel architecture, LiGT, infusing layout understanding abil-
+ity into a pretrained encoder-decoder model while minimizing additional neural
+modules. Experimental evaluation shows our model achieved competitive results
+compared with other multimodal baselines. Furthermore, employing our LiGT’s
+layout component on encoder-only models also yielded remarkable enhancements.
+3. Based on the experimental results, we observed that models capable of generating
+answers superseded those using encoder-only methods.
+4. In addition, while semantic understanding plays a vital role in tackling our dataset,
+applying additional modalities shows substantial performance compared to using
+only text modality.
+In the following sections, we first provide information about related research in
+Section 2. Then, Section 3 presents our ReceiptVQA dataset and dataset analysis. Our
+proposed method is illustrated in Section 4. Subsequently, we present our evaluation
+process in Section 5, including chosen baselines, metrics, experimental results, and
+in-depth analysis. Finally, our conclusions and future plans are conveyed in Section 6.
+1We will provide the link as soon as our paper is accepted
+3
+
+=== PAGE 4 ===
+2 Related Works
+In our research scope, the ReceiptVQA task is defined as extractive document VQA,
+wherein given a question written in natural language and a receipt image, a system
+answers by using verbatim text spans extracted from the image. The following subsec-
+tions provide a brief overview of VQA in the document domain, receipt understanding,
+and current VQA research in Vietnamese.
+2.1 Document VQA dataset
+Many VQA datasets on document images have been introduced in various document
+types. DocVQA [4] encompasses images of industry/business documents, such as let-
+ters, forms, tables, and graphics. VisualMRC [5] contains images that are screenshots
+of web pages. InfographicVQA [6] and ChartQA [7] particularly focus on diagrams.
+Furthermore, some studies extend the current scale of visual input from single to
+multiple images. SlideVQA [23] requires machines to handle a slide deck composed of
+multiple images, while PDF-VQA [24] challenges systems to elicit information from
+multiple pages of a full PDF document collected from published scientific articles.
+Also, recently, DUDE [25] presents as not only a multi-industry, multi-domain, and
+multi-page VQA dataset but also a challenging benchmark with various types of ques-
+tions and answers, aiming to provide a more real-world evaluation scheme for current
+and future methodologies.
+2.2 Document VQA methodology
+Generally speaking, there are two approaches to producing document VQA answers:
+extractive and generative. The extractive approach (or sequence labeling) produces
+answers by marking out the start and end indices of a sub-sequence from the context,
+which is serialized OCR tokens in reading order. This approach has largely been
+applied via BERT-like layout-aware models, which are pioneered by LayoutLM [17].
+The introduction of the following pretrained layout models, e.g., LayoutLMv2 [18],
+Docformer [20], and LayoutLMv3 [26], has shown a remarkable enhancement over the
+past few years.
+Nevertheless, as Powalski et al. [19] addressed, the extractive approach is not
+only sensitive to error-prone OCR systems, and output tagging procedures but also
+inflexible in terms of producing answers. Therefore, the generative approach has
+been investigated with the addition of a decoder module. With an encoder-decoder
+backbone (often a T5-based architecture [27]), generative models have the ability
+to auto-regressively generate answers by a built-in vocabulary, which is not solely
+dependent on the OCR token inputs. Therefore, many architectures and pretrained
+models, such as, TILT [19], UDOP [21], and Docformerv2 [22], have been presented
+and achieved state-of-the-art performance on strong benchmarks.
+In this paper, we conduct experiments on outstanding baselines based on the
+extractive approach and generative approach and assess their feasibility on our
+dataset. Additionally, regarding the experiment scope, we mainly focus on the under-
+standing of document content. Thus, OCR information is first extracted by using an
+off-the-shelf OCR engine and then used for training the examined models.
+4
+
+=== PAGE 5 ===
+2.3 Receipt Understanding
+In recent years, research on receipts has been primarily addressed in the Optical
+Character Recognition (OCR) field, specifically with the two datasets SROIE [8]
+and CORD [9]. SROIE [8], considered the first public receipt dataset, contains 1,000
+scanned receipt images enclosed by special challenges, e.g., poor paper/printing qual-
+ity, low-resolution scanners, long texts, and small font sizes. Subsequently, CORD
+[9] was proposed for the post-OCR parsing task with more than 11,000 Indonesian
+receipt images. In addition, a receipt dataset for the VQA task, named Receipt AVQA,
+was introduced for the RECEIPT-AVQA-2023 shared task [28], encompasses 21,835
+English questions annotated from 1,957 receipt images.
+Regarding the Vietnamese language, studies on receipt images, likewise, primarily
+investigate OCR-related tasks. The Mobile Captured Receipt Recognition Challenge
+(MC-OCR) [29] at the RIVF conference 2021 drew the attention of 105 participants
+and about 1,285 submission entries. MC-OCR used 2,436 Vietnamese mobile captured
+receipts to create the dataset that challenges two tasks, Image Quality Assessment
+and Key Information Extraction. Recently, in 2024, UIT-MLReceipts dataset was
+proposed for extracting key information on more than 2,000 receipt images annotated
+with four classes of bounding box, which are similar to MC-OCR Key Information
+Extraction classes.
+2.4 VQA in Vietnamese
+Vietnamese VQA has been popularized since the introduction of the ViVQA dataset
+[10] in 2019. ViVQA dataset, with 10,328 images and 15,000 QA pairs, was conducted
+in a semi-automatic process, wherein questions and answers from the COCO-QA
+dataset [30] were translated to Vietnamese before being revised by crowd-workers. Suc-
+cessively, the first large-scale and manually annotated dataset for VQA in Vietnamese,
+called OpenViVQA [11], was published encompassing 11,199 images of Vietnamese
+natural scenes and 37,914 open-ended question-answer (QA) pairs. OpenViVQA
+authors also tackled the scene-text property of the image by classifying each QA pair
+into Non-text QA or Text QA label and evaluating strong scene-text VQA baselines
+as well as their proposed architectures. Besides, the EVJVQA Challenge [12] of VLSP
+2022, handling VQA task in three languages English, Vietnamese, and Japanese, and
+the VLSP 2023 challenge on Visual Reading Comprehension for Vietnamese2, tackling
+the scene text factor in images, have gained attention from Vietnamese research com-
+munity. Meanwhile, studies on methodologies for VQA in Vietnamese have started to
+be investigated [13, 14, 31].
+To the best of our knowledge, ReceiptVQA is the initial manually-annotated
+dataset to explore Vietnamese VQA in document images, or receipt images in par-
+ticular. We hope that our work will encourage and facilitate future extensions and
+contributions in Vietnamese VQA for document domains.
+2https://vlsp.org.vn/vlsp2023/eval/vrc
+5
+
+=== PAGE 6 ===
+3 ReceiptVQA Dataset
+Figure 1 shows examples of ReceiptVQA. Each sample of our dataset includes a Viet-
+namese receipt image, a question inquired by natural language in Vietnamese, and
+an answer of text spans extracted from the image. In this section, we illustrate the
+creation process, question classification, and statistical analysis of our dataset.
+Question: Số tiền khách hàng đã được  giảm giá là bao nhiêu?
+Trans. Question: How much discount did the customer get?
+Answer: 0
+Question: Hóa đơn này được thu ngân mã 2031CHT xuất vào
+lúc nào?
+Trans. Question: When was this receipt issued by the cashier
+with code 2031CHT?
+Answer: 14/02/2023 17:37
+Question: Tổng giá trị 2 món hàng khách đã mua là bao nhiêu?
+Trans. Question: What is the total value of the two items the
+customer bought?
+Answer: 40,000
+Question: Sản phẩm lẩu mì được thanh toán với số lượng bao
+nhiêu?
+Trans. Question: What quantity of hot pot noodle products is
+paid?
+Answer: 1 
+Fig. 1: Examples of ReceiptVQA samples
+3.1 Dataset Creation
+Figure 2 illustrates the overview of our dataset creation. Overall, ReceiptVQA under-
+went two phases: image collection, and question-answer annotation. The details of
+each phase are as follows.
+6
+
+=== PAGE 7 ===
+Fig.
+2:
+Overview
+of
+ReceiptVQA
+dataset
+cre-
+ation
+QUESTION-ANSWER ANNOTATION
+ TRAINING MATERIALS
+Guidelines
+Training Subset
+IMAGE COLLECTION
+Annotator
+Recruitment
+Agreement
+Checking
+QA
+Annotating
+Receipt Collecting
+& Capturing
+Image
+Gathering
+Subset Division
+ReceiptVQA
+Dataset
+3.1.1 Image Collection
+Receipts used for the dataset were collected from multiple sources, e.g., coffee shops,
+grocers, supermarkets, and people, and varied from their sizes to brands. Also, faded
+receipts which most of the texts still can be seen by human eyes were retained to cover
+the common phenomenon of gradual fading of the thermal paper. We then captured
+the collected receipts by personal phones, with one receipt for one image. Each receipt
+was captured once.
+The images were created with various backgrounds and different angles, while
+ensuring their textual contents were adequately readable. In addition, we utilized
+images from the MC-OCR dataset [29] by selectively eliminating its images that have
+texts virtually can not be read and combining the rest with our acquired images.
+After the collecting process, we obtained 9,500 receipt images. The images were then
+divided into 100-image subsets for ease of management in the annotation process.
+3.1.2 Question-Answer Annotation
+There were 41 people, including 39 hired annotators and two of the authors, who
+participated in the annotation process. Hired annotators are Vietnamese students
+from the ages of 17 to 23. The annotators were first instructed with a guideline, which
+covers our task definition, requirements, and restrictions. In particular, annotators
+were asked to produce at least six unique QA pairs for each image, and only focus
+on printed elements, i.e., QA pairs about hand-written texts do not belong to our
+scope. The question is a Vietnamese natural question inquiring about one or more
+information about texts on the receipt, and the answer is verbatim text span from
+the receipt which is enough information to satisfy the inquiry.
+Additionally, a question, by preference, should be answered by specific text spans,
+i.e., one unambiguous answer for one question, so as to enhance the reliability, and
+applicability of the document task. Moreover, while encouraging participants to use
+their own lexical resources and grammar to create questions, we restricted them to
+use canonical forms of words, except leveraging texts on the receipt such as brand
+names, or product codes as the intermediary for asking more specifically. Furthermore,
+the questions must belong to neither yes/no question (e.g., Did the customer buy
+product A?) nor selective question (e.g., Did the customer arrive at 10 am or 10 pm?)
+since they have limitations of challenging factors and informative prospects for such
+7
+
+=== PAGE 8 ===
+a document-related task. Besides, if the annotator asks questions that need to be
+answered in the listed manner, <sep> token must be applied between each two items
+in the response.
+To ensure the dataset quality, 150 images were selected randomly to create a subset
+used for training annotators. The training subset contains 1,000 QA pairs annotated
+by the authors. Due to the open-ended attribute of the question, which is difficult to
+evaluate automatically, we focused on how the annotator answers the questions. After
+the instruction of the guideline, crowd-workers were asked to provide answers for 1,000
+questions from 150 images of the training subset. F1 score, presented in Section 5.2.1,
+was utilized for the evaluation. We computed the similarity between answers created
+by hired annotators and pre-annotated answers from the authors on the F1 score,
+considering that the pre-annotated answers are the ground truth. The average of all
+crowd-workers’ scores gained 80.9% overall. Subsequently, hired annotators began to
+annotate QA pairs on 100-image subsets with the payment at $0.014 per pair. Finally,
+we gained a total of 64,812 QA pairs of 9,500 receipt images for the ReceiptVQA
+dataset.
+3.2 Question Classification
+To analyze the language perspective of our dataset, we categorized the questions of our
+annotations, since questions are projected to give more linguistic insights compared
+with varied text spans in the answers. Prioritizing the quality of QA content, we
+decided to classify the questions automatically after the QA annotation process was
+finished.
+According to the study of interrogative construction in the paper [32], most of the
+questions in our dataset fall into constituent interrogatives due to the confinement
+of yes/no and selective questions in the annotation process. Constituent interrogative
+sentences are primarily determined by interrogative words, which are dedicated to
+provide meta-information to elicit desired answers. For instance, interrogative words
+in English, also called wh-words, include what, which, when, where, who, etc.
+In contrast to English, wherein the majority of interrogative words are placed at the
+beginning of a sentence, Vietnamese interrogative words appear in various positions.
+For instance, sentence Khách hàng đã mua gì? (What did the customer buy?) has
+the interrogative word gì (what) at the end position, while sentence Ai là nhân viên
+phụtrách hóa đơn này? (Who is the employee in charge of this receipt?) places ai
+(who) at the initial position. In addition, Vietnamese is a monosyllabic language that
+a word can consist of multiple syllables separated by spaces, e.g, the word khách
+hàng (customer) is constructed by khách (guest) and hàng (goods/product), and
+some interrogative words also have this attribute, e.g., tại sao (why), như thếnào/thế
+nào (how), khi nào/lúc nào (when), and ởđâu (where). Thus, solely relying on the
+first words in the sentence to classify Vietnamese questions is infeasible.
+Following [32, 33], and considering our receipt domain, we categorized our ques-
+tions into eight classes including Location, Object, Quantity, Time, Reason, Manner,
+Person/People, and Other, which were designed to represent types of information
+that expected to be answered. We generalized the classifying process by making use
+of typical keywords, a part of or a whole interrogative word, which are the minimal
+8
+
+=== PAGE 9 ===
+interrogative parts that can be categorized. For example, cái gì (what thing(s)), and
+là gì (am/is/are what) can be classified by one keyword gì (what), and ởđâu (where)
+can be recognized by keyword đâu (also means where). Table 1 illustrates the chosen
+keywords and their classes respectively.
+Table 1: Question-Answer classes with their respective keywords and glosses
+Class
+Keyword
+Gloss
+Location
+đâu
+where
+Object
+gì, nào
+what/which
+Quantity
+mấy, nhiêu
+how much/how many/what quantity
+Time
+khi nào, lúc nào, thời gian nào
+when
+ngày nào, ngày mấy, ngày bao nhiêu, mùng nào, mùng mấy
+what day/what date
+tháng nào, tháng mấy
+what month
+giờnào, mấy giờ
+what time
+năm nào
+what year
+thứmấy
+what week day
+Reason
+vì sao, tại sao, đểlàm gì
+why/what purpose
+Manner
+thếnào, bằng cách nào, làm cách nào, làm sao, như nào
+how
+Person/People
+ai
+who
+Other
+-
+-
+We set rules to check whether a keyword is in the given question, and which cat-
+egory it belongs to. Due to the Vietnamese monosyllabic attribute, some keywords
+having one syllable when combined with other special syllables can become keywords
+in other classes. For instance, keyword nào (what/which) in Object class gotten pre-
+ceded by ngày (day/date) becomes keyword ngày nào (what day/what date) in Time
+class, while nào (what/which) combining with syllable như (like/similar to) turns into
+keyword như nào (how) in Manner class. There are such four conflict single-syllable
+keywords: gì and nào (what/which) in Object and mấy and nhiêu (how much/how
+many) in Quantity. To avoid these problems, we prioritized checking multi-syllable
+keywords having conflict syllables, which create more particular contexts. If there was
+no match, the single-syllable keywords, which cover the remaining contexts, were then
+checked. The conflict cases must return only one out of the conflict classes.
+3.3 Dataset Statistics and Analysis
+3.3.1 General Statistics
+ReceiptVQA dataset contains 9,500 receipt images, and 64,812 QA pairs. For evalua-
+tion, we randomly split the dataset into three sets train, dev, and test with the ratio
+8:1:1 respectively. Since the questions and answers are created from the content of the
+images, we ensured that there is no overlap image in each set to the others. Table 2
+shows details of split images as well as QA pairs in each set.
+We conducted a fundamental statistical analysis of ReceiptVQA and two former
+Vietnamese VQA datasets, OpenViVQA, and ViVQA. Table 3 shows that our number
+of QA is much larger than the others, although our dataset has fewer images. This
+results in a significantly higher rate of average QA pairs per image, with 6.8 pairs
+of ReceiptVQA compared to 4.3 pairs of OpenViVQA and 1.5 pairs of ViVQA. This
+9
+
+=== PAGE 10 ===
+Table 2: Data split counts
+Set name
+Num. image
+Num. QA pair
+train
+7,600
+51,886
+dev
+950
+6,426
+test
+950
+6,500
+indicates that machine learning systems could have more chances to comprehend our
+data in the training process. In addition, we calculated the lengths of the questions
+and answers by splitting them into sequences of tokens by white spaces and counting
+the number of tokens in each sequence. The average question length of our dataset is
+higher than the two others. However, our average answer length, moderately higher
+than ViVQA’s, is much lower than that of OpenViVQA, which can be explained
+by the open-ended characteristic of the OpenViVQA answers. Furthermore, Figure
+3 shows that our questions cover a wide range of lengths with the majority around
+8 to 14 tokens, while the lengths of the answers are mainly one token. Overall, our
+ReceiptVQA presents a VQA dataset of natural questions with answers that reflect
+the conciseness of an extractive VQA task.
+Table
+3:
+Statis-
+tics
+of
+questions,
+answers and images
+in OpenViVQA [11],
+ViVQA
+[10]
+and
+our
+ReceiptVQA
+dataset
+OpenViVQA
+ViVQA
+ReceiptVQA (ours)
+Num. image
+11,199
+10,328
+9,500
+Num. question
+37,914
+15,000
+68,412
+Num. unique question
+30,809
+11,826
+47,674
+Avg. QA/image
+4.3
+1.5
+6.8
+Avg. question length
+10.1
+9.5
+11.8
+Avg. answer length
+5.4
+1.8
+2.1
+3.3.2 Further Analysis
+Regarding the question types mentioned in Section 3.2, Figure 5 shows that Object
+(27,586 annotations) and Quantity (26,127 annotations) are the most populous ques-
+tion types in the dataset, followed by Time with 6,901 annotations. Additionally, no
+other question type has a number of samples exceeding 2,000 annotations, and the
+Reason type has only 50 annotations, as expected given the nature of the domain.
+Besides, the type Other has 1,605 annotations. We observed that these Other ques-
+tions generally fall into those containing more than one keyword, e.g., question Sản
+phẩm đầu tiên trong hóa đơn này có tên là gì và sốlượng mua bao nhiêu? (What is
+the name of the first product on this receipt and how many is it purchased?) with the
+answer Longan Tea- Jasmine (L) <sep> 2, or questions do not have any listed key-
+words, e.g., Sốtham chiếu của hóa đơn này là? (The reference number of this receipt
+is?). In addition, the number of questions requiring answers to include <sep> token
+is 1,068; we ensured that each set in Table 2 contains a certain amount of this kind
+of answer.
+10
+
+=== PAGE 11 ===
+3
+4
+5
+6
+7
+8
+9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+Number of Tokens
+0
+1000
+2000
+3000
+4000
+5000
+6000
+7000
+8000
+9000
+Frequency
+Fig. 3: Number of questions with a particular question length
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9 10 11 12 13 14 15 16 17 18 19
+Number of Tokens
+0
+5000
+10000
+15000
+20000
+25000
+30000
+35000
+40000
+45000
+Frequency
+Fig. 4: Number of answers with a particular answer length
+We analyzed the lengths of questions and answers in each type of question. We
+separated questions into tokens, which is similar to the way used to assess question
+lengths in Figure 3. Answers, however, were separated into characters to differentiate
+them more specifically, since Figure 4 shows they mainly contain one token.
+Figure 6 shows that the lengths of questions are roughly evenly distributed among
+the question types, spanning from 10 tokens to 13 tokens. Questions about people
+11
+
+=== PAGE 12 ===
+0
+5000
+10000
+15000
+20000
+25000
+30000
+35000
+Number of Annotation
+Other
+Person/People
+Manner
+Reason
+Time
+Quantity
+Object
+Location
+Question Types
+1605
+1088
+231
+50
+6901
+26127
+27586
+1224
+Fig. 5: Number of annotations in each question type
+or a person are relatively lower than the others, while asking about quantity is used
+relatively longer questions. Contrary to the questions, the length distribution of the
+answers has certain differences among the types. In particular, answers for Location
+questions have the longest average length with nearly 40 characters, while the lowest
+average length belongs to answers for Quantity questions. This could be explained
+that Quantity questions tend to require numbers, or codes, which are often a couple
+of characters, whereas answering about locations is likely to include both numbers
+and letters to specify street numbers, street names, provinces, etc.
+Object
+Quantity
+Time
+Location
+Person/
+People
+Manner
+Reason
+Other
+0
+2
+4
+6
+8
+10
+12
+14
+Average of Question Lengths (Tokens)
+11.40
+12.65
+10.89
+10.89
+10.19
+11.45
+10.84
+11.57
+Fig. 6: Average of question lengths, counted in tokens, in each question type
+12
+
+=== PAGE 13 ===
+Object
+Quantity
+Time
+Location
+Person/
+People
+Manner
+Reason
+Other
+0
+5
+10
+15
+20
+25
+30
+35
+40
+45
+Average of Answer Lengths (Characters)
+15.70
+5.58
+9.85
+39.49
+11.61
+17.58
+25.94
+12.49
+Fig. 7: Average of answer lengths, counted in characters, in each question type
+As mentioned in Section 3.2, the position of Vietnamese interrogative words can
+vary from the start to the end of a question. To further explore this phenomenon
+in receipt questions more particularly, we categorized the positions into three labels,
+wherein the Start and End label denoted whether the keyword is at the beginning or
+at the end of the question, and the Middle label denoted the remaining cases. Figure
+8 illustrates the proportion of each keyword position in each question type, except
+the Other type. It can be seen that the majority of our questions has keywords at the
+end of the sentence; all types have more than 70% share of the End label, which may
+indicate that one tends to mention the context before finishing with the interrogative
+part when it comes to inquiring about receipts.
+In terms of responding to the dataset questions, the answer must be verbatim text
+spans from the receipt image, where typical information is number, such as product
+price, total price, and product quantity. To get a clearer view of how one uses spans
+to answer, we divided our dataset answers into three types: Numeric, Non-Numeric,
+and Hybrid. Regardless of the punctuation, Numeric answers are answers that contain
+only numbers, while Non-Numeric answers involve elements that are not numbers,
+and Hybrid answers encompass the combination of both types. For instance, answer
+50 000 or 50.000 or 30/04/2024 is Numeric, while answer tiền mặt (cash) or Trà đào
+(L) (Peach tea (L)) is Non-Numeric, and answer 50.000 VND or 24/12/2022(Thứ
+bảy) (24/12/2022(Saturday)) is Hybrid. Figure 9 shows that the Numeric answer is
+the most populous type, accounting for more than half of the total answers, while the
+proportion of Hybrid answers is the smallest, making up 16.6%. This suggests that
+Numeric answers are either easier for crowd-workers to annotate or actually the most
+vital form of answer for receipts.
+Furthermore, we explored the distribution of each answer type on the character-
+level lengths, shown in Figure 10. The red lines represent the average number of
+characters in one first token (6.8 characters), two first tokens (9.2 characters), and
+three first tokens (13.5 characters) in the answers. It is apparent that Numeric answers
+13
+
+=== PAGE 14 ===
+Object
+Quantity
+Time
+Location
+Person/
+People
+Manner
+Reason
+0
+20
+40
+60
+80
+100
+Percentage of Question (%)
+0.0
+0.0
+1.0
+0.5
+22.7
+4.3
+0.0
+13.4
+25.8
+6.7
+4.0
+5.5
+6.9
+0.0
+86.6
+74.2
+92.2
+95.5
+71.8
+88.7
+100.0
+Start
+Middle
+End
+Fig. 8: Distribution of keyword position of each question type ordered by their fre-
+quency from the highest to the lowest (excluded Other type)
+are generally shorter than the others, and mainly used by from one to three tokens.
+Whereas, Hybrid answers have the largest range of lengths, having a visible density
+ranging from zero to approximately 55 characters. The Non-Numeric answers also have
+a relatively large range, reigning the middle position between the other two types. This
+indicates that annotators may have to put more effort into Hybrid and Non-Numeric
+answer types than the Numeric type, intending to invest more time in Numeric answers
+to optimize the amount of money they can receive. Therefore, identifying and grouping
+difficulties of the annotations in advance for balancing annotation credit could result
+in more diverse datasets in future works. Additionally, we explored the Part-of-Speech
+(POS) tagging perspective on our dataset in Appendix A.
+4 Our Proposed Method
+Document images are characterized by an immense density of texts. Thus, using
+regular 2D locations for such document tasks usually means not only handling 2D
+information of vertical and horizontal locations of both top-left and bottom-right
+points of all bounding boxes but also reasoning semantic information of both the
+given question and OCR texts comprehensively. On the other hand, document VQA
+tasks often use a relatively small portion of the total text spans to provide answers,
+which may not be necessary to process precisely all the locations of OCR bound-
+ing boxes. Therefore, in our layout approach, instead of directly using the locations
+of OCR bounding boxes, our model first hashes them into simple symbols to repre-
+sent the areas they belong to and then uses them to operate layout embeddings via
+14
+
+=== PAGE 15 ===
+26.0%
+16.6%
+57.4%
+Types
+Non-Numeric
+Hybrid
+Numeric
+Fig. 9: Percentage of each answer type
+embedding layers of the pretrained model. OCR texts in the same area at the exam-
+ined hashing level have the same representation. By hashing through multiple levels,
+OCR elements are initiated relative 2D connections to each other, constituting the
+2D layout modality.
+Figure 11 schematically shows the overview of LiGT architecture. Our proposed
+method has two main components: LayoutHEI (Layout Hashing and Embedding
+Integration), and Language Model, which are detailed in the following subsections.
+4.1 LayoutHEI
+We conceptualized our LayoutHEI component based on two principles: (i) gradually
+specifying the 2D location of text via their relative areas throughout multiple lev-
+els, and (ii) leveraging inherent properties of language models for 2D representing.
+LayoutHEI focuses on extending the semantic embeddings of pretrained models, com-
+plementing 2D layout information to the language embedding input. This proposed
+component consists of two phases, Layout Hashing and Layout Embedding Integration.
+4.1.1 Layout Hashing
+Figure 12 presents the overview of the layout hashing phase, wherein given a set of
+n OCR bounding boxes and a number of hashing levels L, the system provides L
+sequences of n symbols (αi,j) representing the areas the bounding boxes belong to.
+The order of symbols in each hashing level follows the reading order. Each symbol αi,j,
+where i = {1, ..., L}, and j = {1, ..., 4}, gives information that the current bounding
+box location is assessed in the ith of L level, at the jth of 4 divided areas (quarters).
+15
+
+=== PAGE 16 ===
+Non-Numeric
+Hybrid
+Numeric
+Category
+0
+50
+100
+150
+200
+Number of characters
+Avg. char. 1st token
+Avg. char. 1st & 2nd tokens
+Avg. char. 1st, 2nd & 3rd tokens
+Fig. 10: Distribution of answer types against numbers of characters
+Fig.
+11:
+Overview
+of
+LiGT
+model
+architec-
+ture
+Layout
+Hashing
+Layout
+Embedding
+Integration
+Q
+Q
+Q
+OCR
+OCR
+OCR
+OCR
+Bounding
+Boxes
+OCR Text
+Question
+Receipt
+Tokenize
+Tokenize
+Linearize
+Answer
+Encoder
+Decoder
+Language Model
+LayoutHEI
+At the first hashing level, the examined area is initiated by identifying a rectangle
+having max and min values of the x and y axis of all the bounding boxes, i.e, the
+rectangle has (xmin, ymin, xmax, ymax) location in which the x, y values are from
+all bounding boxes’ locations. As a result, the hashing scope only depends on the
+locations of the given bounding boxes.
+After the examined area is initiated, it is then separated into four equal parts
+(quarters). These quarters are used to identify the relative positions of the bounding
+boxes. We denote each quarter with a corresponding symbol, αi,j.
+Bounding boxes are assigned with the symbol corresponding to the quarters they
+belong to. We identify the area containing each bounding box by identifying which
+quarter the location of the bounding box’s center point is in.
+16
+
+=== PAGE 17 ===
+Subsequently, we gain a sequence of n symbols representing the quarters containing
+the bounding boxes. The process is recursively executed L times for L hashing levels.
+From the second hashing level, the examined areas are pivoted to the quarters of the
+previous hashing level.
+At the end of this phase, we gain L sequences of n symbols, αi,j, hierarchically
+representing the relative location of each bounding box. The 2D layout information
+of each bounding box is conveyed by a combination of its L symbols. In other words,
+each bounding box position is identified by L symbols, wherein the higher the level of
+the symbol, the more specific the bounding box position is.
+4.1.2 Layout Embedding Integration
+Each hashing level has four symbols to denote the corresponding quarters. In practice,
+we use upper-cased letters in the English alphabet to simply present the symbols.
+Following the alphabetical order, four continual letters are used for four symbols in
+each hashing level. Each letter is assigned to a quarter following the reading order.
+In other words, we associate α1,1 with letter A, α1,2 with letter B, α2,1 with letter E,
+α2,4 with letter H, etc.. In addition, tokens from questions are considered as special
+cases of 2D hashing, and we assign them with the letter zero (0).
+BBOX 1
+BBOX 2
+BBOX 3
+BBOX n
+BBOX 4
+α1,1
+α1,2
+α1,3
+α1,4
+α2,1
+α2,2
+α2,3
+α2,4
+α2,1
+α2,2
+α2,3
+α2,4
+α2,1
+α2,2
+α2,3
+α2,4
+α2,1
+α2,2
+α2,3
+α2,4
+Bounding Box
+Location by Ereas
+Level 1
+Level 2
+α1,1
+BBOX 1
+BBOX 2
+BBOX 3
+BBOX 4
+BBOX n
+α2,1
+α1,2
+α2,2
+α1,3
+α2,2
+α1,4
+α2,2
+α1,4
+α2,4
+Receipt Image
+Hashed Layout Representation
+of each Bouding Box
+Fig. 12: Illustration of the Layout Hashing phase in our LayoutHEI component in
+the LiGT architecture. For simplicity, only two hashing levels are presented
+17
+
+=== PAGE 18 ===
+Figure 13 shows the overview of the layout integration phase. To leverage the prop-
+erties of pretrained models, we utilize embeddings of the applied pretrained model.
+In particular, embeddings corresponding to the letters denoting 2D hashing areas are
+used to create 2D layout embeddings. L sequences of hashed layout letters (α) are
+projected through the embedding layer of the language model to gain L embeddings
+(Eα). The embeddings are then element-wise computed to obtain the average embed-
+ding and multiplied with a learnable ratio which ranges from 0 to 1. The computed
+result (Ehash) is added to the semantic embedding to become the input embedding,
+which is projected to the model for training and inferring.
+Particularly, given a sequence of T input tokens, including tokenized questions
+and tokenized OCR texts, the tth embedding of the corresponding token (Esemantic
+t
+)
+is integrated with the layout embedding as follows:
+ω = σ(ρ)
+(1)
+Ehash
+t
+= ω ⊙1
+L
+L
+X
+i=1
+Eαi
+t
+(2)
+,
+,
+Eα
+Sequences of 
+Hashed Layout Symbols
+Ehash
+α1,1
+α1,1
+α1,2
+α1,3
+α1,3
+α1,4
+α2,2
+α2,3
+α2,4
+α2,1
+α2,2
+α2,3
+,
+,
+α
+Embeddings of Hashed
+Layout Symbols
+Embedding
+Layer
+Average
+Ratio
+Hashed Layout
+Embeddings
+Answer
+Ehash
+Esemantic
++
++
++
++
++
++
+Pretrained Model
+Einput
+Fig. 13: Illustration of the Layout Integration phase in our LayoutHEI component
+18
+
+=== PAGE 19 ===
+Einput
+t
+= Esemantic
+t
++ Ehash
+t
+(3)
+where ρ is a learnable parameter, σ is the sigmoid function, and ⊙is element-wise
+multiplication. The average of hashed embeddings corresponding to the tth token is
+computed and multiplied with the ratio ω to create the 2D layout embedding Ehash
+t
+.
+The semantic embedding Esemantic
+t
+is then added with the layout embedding to create
+the tth input embedding, being ready to project through the pretrained model.
+Besides, regarding our choices of the symbols, alphabetical letters are likely to
+have the in-ordered semantic in pretrained language models, making them suitable
+to represent arranged and hierarchical elements. Additionally, these letters are basic
+characters that return in one token after the tokenization process. Thereby, each
+hashed layout symbol results in one vector of embedding, easily aligning with semantic
+embeddings of the corresponding tokens.
+4.2 Language Model
+We choose the Text-to-Text Transfer Transformer (T5 [27]) as the language model
+backbone for our architecture. T5 is a widely used model to tackle VQA tasks, easily
+adapting to process additional modalities. Based on the T5 architecture, many mul-
+timodal extensions have proposed and achieved state-of-the-art performance not only
+in document VQA [5, 19, 21, 23] but also in scene-text VQA [34–36], and many other
+multimodal studies. Empirical studies show that T5 architecture has a certain level
+of resistance against OCR errors with its capability to generate texts by using the
+model’s built-in vocabulary. Applying the T5 model to our Language Model compo-
+nent is projected to enhance 2D spatial processing ability and equip our LiGT model
+the flexibility in producing answers. To effectively handle the Vietnamese language,
+we made use of the Vietnamese version of T5, named ViT5 [37], pretrained on a large
+resource of high-quality and diverse Vietnamese texts.
+5 Evaluation
+This section presents the performance of our LiGT model and comparative baselines
+on the ReceiptVQA dataset. We follow the regular training paradigm that improves
+models’ scores on the training and development set before comparing the overall
+results on the test set.
+Due to the lack of pretrained layout-aware models designed for Vietnamese, we
+made use of multilingual models and architectures that can adapt to the Vietnamese
+language. To extract OCR, we used Google Cloud Vision API3, which results in an
+average of 142 bounding boxes per image. The following subsections describe chosen
+methods, metrics, the setup for baseline experiments, experimental results, and further
+analysis in methodologies.
+3https://cloud.google.com/vision
+19
+
+=== PAGE 20 ===
+5.1 Comparative Baselines
+5.1.1 Extractive baselines
+Figure 14 schematically shows the overview of our employment for the extractive
+baselines. All textual inputs and outputs of extractive models follow the same process
+as illustrated, while visual and layout inputs are particularly extended depending on
+the model architectures. The outputs are the start index and the end index of the
+answer span, which are predicted by using two fully connected layers to process the
+encoded input.
+BERT-LIKE MODEL
+[CLS]
+Token1
+[SEP]
+[EOS]
+TokenN
+...
+...
+Token1'
+TokenN'
+E[CLS]
+ET1
+E[SEP]
+E[EOS]
+ETN
+...
+...
+ET1'
+ETN'
+h[CLS]
+hT1
+h[SEP]
+h[EOS]
+hTN
+...
+...
+hT1'
+hTN'
+Start Span
+Question
+Linearized OCR
+Text (Context)
+Answer
+End Span
+FULLY CONECTED LAYER
+FULLY CONECTED LAYER
+Token
+Embeddings
+Input 
+Tokens
+Hidden
+States
+Fig. 14: Overview of our Text modality employment for the extractive baselines
+Preparing answers for extractive models was conducted in an automated manner.
+We identify the start and end index of the answers by finding the first occurrence of the
+answers in the context string. Since there often exists errors in OCR text recognition,
+we also include cases having only output texts that lose one character, if there are two
+or more characters in their actual outputs. Other cases, such as one character being
+changed or added, or losing more than one character, are not allowed, as they have a
+higher possibility of causing misinformation. Table 4 shows percentages of the answers
+that are able to support the extractive approach. In terms of training, we also include
+the answers that do not support the extractive approach by assigning them to the
+index of the [CLS] token (the zero index in most cases) and consider the output that
+only contains [CLS] token as the model can not find any appropriate span to answer.
+Our used extractive models are listed as follows.
+20
+
+=== PAGE 21 ===
+Table 4: Proportions of answers that can produce literal extractive outputs regarding
+two matching procedures
+Set name
+Fully-matched
+Our approach
+approach (%)
+(%)
+train
+75.86
+80.93
+dev
+76.17
+81.26
+test
+76.77
+81.66
+total
+75.98
+81.04
+• Text-only pretrained language models: we employed two multilingual models, XLM-
+Roberta [38], and InfoXLM [39], and two Vietnamese models, PhoBERT [40] and
+CafeBERT [41]. These are widely used language models that show outstanding
+performance on various NLP benchmarks in Vietnamese.
+• LiLT [42]: LiLT is a layout pretrained model that can easily incorporate with an
+available RoBERTa-based language model, regardless of its pretrained languages,
+and perform competitively on document understanding tasks. We incorporate LiLT
+with XLM-Roberta, InfoXLM, and PhoBERT to create three LiLT-based baselines.
+• LayoutXLM [43]: LayoutXLM is the first multilingual layout-aware pretrained mod-
+els. Based on LayoutLMv2 [43], it provides a strong multilingual baseline that
+combines textual, visual, and layout information for document understanding tasks
+in 53 languages.
+5.1.2 Generative baselines
+Since there is neither a Vietnamese layout-aware generative pretrained model nor
+a multilingual one, our chosen baselines for this approach are deep neural network
+architectures that have a backbone of pretrained generative language model, which
+can be replaced by a corresponding Vietnamese version. In other words, we did not
+apply any pre-training phase and each generative baseline only underwent one phase
+of training on our ReceiptVQA dataset.
+The chosen architectures are as follows.
+• ViT5 [37]: ViT5 is a Vietnamese version of T5 [27], which is a pretrained
+Transformer-based encoder-decoder model. ViT5 has shown remarkable perfor-
+mance not only in text generation tasks such as text summarization but also in text
+classification tasks in Vietnamese.
+• ViT5+2D, ViT5+U, ViT5+2D+U [19]: are originated from the research of the
+TILT model [19] and its implementation in the DUE benchmark [44]. These archi-
+tectures extend the T5 model [27] to understand layout information and visual
+content. The layout is handled by adding 2D layout embeddings to the model atten-
+tion bias (denoted by +2D), while the model’s visual ability is from the utilization
+of U-Net [45] (denoted by +U ). The U-Net is trained together with the T5 back-
+bone in the training phase as a whole architecture. Despite being introduced in
+2021, these methods still stand as standard baselines for generative approaches in
+document understanding, and have been widely used till recent research [21, 22, 25].
+21
+
+=== PAGE 22 ===
+With regard to our experiments, we apply ViT5 [37] as the T5 backbone for these
+architectures.
+• LaTr [34]: is a method initially designed for scene-text VQA tasks. The model
+processes input from a concatenation of text embedding, 2D layout embedding,
+and the spatial embedding extracted from Vision Transformer encoder (ViT) [46],
+and feeds them to its T5 [27] backbone. While most scene-text VQA architectures
+involve an object detection module, such as Faster R-CNN [47], which provides
+specific visual information of objects in the image, LaTr utilizes patched features
+encoded from ViT [46], which may benefit in document tasks primarily focusing on
+text in the image. The employment of our LaTr version also made use of ViT5 [37]
+as the T5 backbone.
+5.1.3 Upper bounds and heuristics
+We employed fundamental upper bound and heuristic baselines to facilitate the com-
+parison of our chosen models on the dataset. For our upper bound, we leveraged
+results from fully-matched answers in Table 4, and named it MATCHED_OCR.
+We also made use of fully-matched answers in cases where the OCR contexts
+are limited to 142 bounding boxes, the average number of OCR bounding boxes,
+MATCHED_OCR_AVG. The upper bound represents the ability to provide answers
+precisely if they exist in the given OCR text input, otherwise return empty strings.
+Regarding the heuristic baselines, we provided two baselines that randomly select
+an answer from the top 10, and top 100 most frequent answers in the train set, named
+RAND_TOP10, RAND_TOP100 respectively. These heuristics reflect whether our
+dataset is biased and could be handled by merely selecting some random answers.
+5.2 Evaluation Metrics
+With regard to the receipt domain where the majority of answers contain numbers,
+we value the preciseness of each single character in the results. Thus, we made use
+of the F1 metric and the Accuracy metric. Moreover, following previous research in
+document VQA, we also evaluated the Average Normalized Levenshtein Similarity
+(ANLS) [16].
+5.2.1 F1
+Our applied F1 version is similar to the F1 in EVJVQA Challenge of VLSP 2022 [12].
+Answers from the prediction set and ground-truth set are first separated by white
+spaces to gain sequences of tokens. The final scores of the metric are the average score
+of each pair of predictions and corresponding ground truth sequences. Each pair is
+computed following the formula:
+Precision =
+number of shared tokens
+number of tokens in the evaluated set
+(4)
+Recall =
+number of shared tokens
+number of tokens in the ground truth set
+(5)
+22
+
+=== PAGE 23 ===
+F1 = 2 × Precision × Recall
+Precision + Recall
+(6)
+5.2.2 Accuracy
+Accuracy is computed by determining whether the predicted answer is mapped cor-
+rectly to its ground truth. The final Accuracy score is the percentage of the shared
+answers in the ground truth that exactly match their inferred answers.
+5.2.3 ANLS
+Proposed along with STVQA dataset [16], ANLS utilizes normalized Levenshtein sim-
+ilarity [48] to reduce the strictness of the Accuracy metric, which will return zero even
+if the prediction has minor flaws. As our dataset has one ground truth answer for one
+question, we simplify the applied ANLS formula as follows:
+ANLS = 1
+N
+N
+X
+i=0
+s(ai, oi)
+(7)
+s(ai, oi) =
+
+(1 −NL(ai, oi)), if NL(ai, oi) < τ
+0,
+if NL(ai, oi) ≥τ
+(8)
+where N is the number of the evaluated answers, ai and oi are the ith prediction and
+ground truth respectively where i = {0, ..., N}, NL(ai, oi) is the normalized Leven-
+shtein distance between ai and oi, which is a value between 0 and 1. The threshold τ
+determines whether the ANLS score is 0 or the value based on the normalized Lev-
+enshtein distance. We choose the original threshold of 0.5 for all evaluations. The
+final scores of the metric are the average score of each pair of the prediction and the
+corresponding ground truth.
+5.3 Experimental Setup
+We evaluated the baselines on both their base and large versions. However, LiLT and
+LayoutXLM were the exceptions since only their base versions are published. Also,
+CafeBERT, trained from the large version of XLM-Roberta, was considered to have
+only a large version. For generative models, base and large versions indicate the version
+of the ViT5 backbone. Regarding our LiGT model, we apply four hashing levels (L =
+4) and set an initial value of the learnable parameter (ρ) to 0.5.
+All baselines are trained on batch size of 8, throughout 10 epochs. Adam optimizer
+[49] and linear scheduler are employed. All models are used 5e−5 learning rate, 5,000
+warm up steps, and cross entropy loss. The weights of all pretrained models were
+applied from HuggingFace [50].
+Due to high computational cost, we limit the max length of input to not exceed 180
+tokens, including question and linearized OCR texts. This is a reasonable constraint
+since our extracted OCR contains 142 bounding boxes on average and the mean of
+our question lengths is 11.8.
+In terms of categorizing the modalities, we refer to textual semantics (T), layout
+content (L), and visual information (V), presented in Table 5, as the abilities of a model
+23
+
+=== PAGE 24 ===
+capable of processing the corresponding modality. In other words, models having V
+modality means they process visual features either from a pretrained visual model
+or from their trainable visual components, L modality in essence is the utilization of
+bounding boxes to create 2D spatial features.
+5.4 Experimental Results
+Table 5: Main evaluation results of baselines on the ReceiptVQA test set. Modality
+T, L, and V denote the utilization of Textual semantics, Layout content, and Visual
+information respectively
+Model
+Version
+Modality
+Metrics
+T
+L
+V
+ANLS
+F1
+Accuracy
+Upper bound (UB) & Heuristic (H)
+MATCHED_OCR (UB)
+76.77
+76.72
+76.77
+MATCHED_OCR_AVG (UB)
+74.63
+74.59
+74.63
+RAND_TOP10 (H)
+4.62
+1.54
+1.48
+RAND_TOP100 (H)
+2.71
+0.41
+0.31
+Extractive approach
+CafeBERT
+large
+✓
+56.59
+52.67
+50.40
+PhoBERT
+base
+✓
+61.39
+57.55
+54.91
+large
+57.87
+53.93
+51.34
+XLM-Roberta
+base
+✓
+58.00
+54.49
+52.28
+large
+57.81
+53.76
+50.97
+InfoXLM
+base
+✓
+58.33
+54.49
+51.89
+large
+57.56
+52.92
+49.08
+LiLT[P hoBERT ]
+base
+✓
+✓
+59.87
+56.29
+54.05
+LiLT[XLM−Roberta]
+58.34
+54.49
+51.92
+LiLT[InfoXLM]
+58.77
+54.69
+51.34
+LayoutXLM
+base
+✓
+✓
+✓
+59.11
+55.45
+53.05
+Generative approach
+ViT5
+base
+✓
+78.08
+67.04
+61.82
+large
+77.22
+66.69
+61.60
+ViT5+2D
+base
+✓
+✓
+75.03
+63.56
+58.20
+large
+74.08
+63.17
+58.08
+ViT5+U
+base
+✓
+✓
+✓
+78.98
+67.89
+62.46
+large
+78.78
+68.10
+62.80
+ViT5+2D+U
+base
+✓
+✓
+✓
+75.91
+65.08
+59.92
+large
+73.56
+62.41
+57.43
+LaTr
+base
+✓
+✓
+✓
+73.98
+61.53
+56.37
+large
+73.47
+61.79
+56.95
+LiGT (Ours)
+base
+✓
+✓
+78.78
+67.9
+62.63
+large
+78.64
+68.09
+63.02
+Our main results are shown in Table 5. It can be seen that our LiGT model pre-
+sented promising results. In particular, LiGT attained the highest F1, and Accuracy
+score compared to other baselines, which were competitive with ViT5+U which needs
+24
+
+=== PAGE 25 ===
+to train the U-Net architecture along with the ViT5 model. Furthermore, it is clear
+that generative models outperform extractive models significantly, demonstrating the
+feasibility of future investigations on architectures that can generate answers. In addi-
+tion, heuristic baselines performed poorly on our dataset. This indicates that our
+dataset has a certain level of complication and requires properly-developed methodolo-
+gies to handle it. Also, in terms of preciseness, there existed a remarkable performance
+gap between the upper bounds and the models, which suggests a certain level of
+challenge in our dataset.
+5.5 Experimental Analysis
+5.5.1 Impact of Modalities on Extractive Baselines
+Regarding the extractive approach in Table 5, text-only baselines showed competitive
+results compared with other multimodal baselines. In particular, there was only a
+marginal gap between the two multilingual models, XLM-Roberta, and InfoXLM,
+and the multimodal models. Moreover, the native pretrained PhoBERT achieved a
+significant performance, surpassing LayoutXLM, and its LiLT-based layout extension,
+LiLT[P hoBERT ].
+In addition, all large extractive models performed considerably worse than their
+base versions, which is not a regular phenomenon in NLP tasks. For this reason, we
+speculate that the linearized OCR context could hinder the models’ inherent capa-
+bilities of understanding semantic properties, since the OCR context lacks natural
+language formats which are often characterized by phrases, sentences, and paragraphs.
+These observations indicate that Textual modality plays a crucial role in under-
+standing the receipt domain but it is not sufficient for models to comprehend the OCR
+context. Therefore, investigating extractive multimodal methodologies is necessary,
+and there still remains plenty of room for improvement.
+5.5.2 Impact of Modalities on Generative Baselines
+In terms of generative performances, Table 5 shows that ViT5, a plain-text model,
+gained remarkably high scores in comparison to other multimodal models. In partic-
+ular, ViT5 outperformed ViT5+2D, ViT5+2D+U, and LaTr, despite having lower
+scores than ViT5+U and LiGT. Observing ViT5+2D, ViT5+2D+U, and LaTr, we
+found that these models have one similarity of applying fully new additional embed-
+ding layers for tackling layout understanding. This suggests that inducing fully new
+embedding layers to pretrained models might result in incompatibility between the
+neural modules when tackling the receipt domain in Vietnamese, causing difficulties
+for the models to converge. On the other hand, it can be seen that leveraging trained
+embedding layers of pretrained models to incorporate layout understanding, such as
+LiGT, gained promising improvements in comparison with the text-only ViT5 model.
+In spite of achieving a competitive performance, ViT5 still had its large version
+limited under its base version, which is similar to the extractive text-only models.
+Meanwhile, ViT5+U and LiGT showed prominent performances on their large models,
+which suggests that generative models might also require multimodal solutions to
+tackle the Vietnamese receipt domain comprehensively.
+25
+
+=== PAGE 26 ===
+Results in Table 5 also suggest that inducing multimodal methodologies could be
+necessary but might need thorough development to adapt to particular Vietnamese
+contexts. As mentioned in Section 3.2, there are considerable differences between
+English and Vietnamese, from the grammatical perspectives of questions to the vari-
+ety of interrogative words. On that account, understanding the inquiries and OCR
+context could be dissimilar in English pretrained models and Vietnamese pretrained
+models. This could be the reason why some multimodal models such as ViT5+2D+U,
+and ViT5+2D had poor performances in comparison with other generative models,
+although they have shown outstanding results in many document datasets in English.
+Furthermore, in our research scope, we excluded the multimodal pre-training
+process of these model architectures due to its high computational cost. Hence,
+results when the models have pre-training process could be different. We hope future
+extensions could investigate these aspects more comprehensively.
+5.5.3 Analysis of Experimental Results on Question Types
+We further analyzed the results via question types mentioned in Section 3.2 and
+Section 3.3.2. As the number of examined baselines is quite huge, we selectively
+assessed on four extractive models (PhoBERTbase, PhoBERTlarge, LiLT[P hoBERT ],
+and LayoutXLM), and four generative models (ViT5+Ubase, ViT5+Ularge, LiGTbase,
+and LiGTlarge) that have prominent performances. For ease of visualization, we also
+reduced the number of question types down to five types by considering types Reason,
+Manner, and Other, which have few samples, as one type named Minors.
+Figure 15 shows that extractive models have similar patterns. Referring to Figure
+5, the models performed better on question types such as Object, Quantity, and Time,
+which have a high frequency of annotations. Interestingly, the People/Person type,
+which has remarkably lower frequency than the aforementioned types, was inferred
+with higher scores than the others. It could be explained that answers about a person
+or a group of people are often either human names or short ID codes, which are
+apparently more recognizable than other forms of text. On the other hand, models
+struggled with questions about locations although they have relatively equal frequency
+compared with questions in the People/Person type. Considering Figure 7, it can
+be seen that Location questions require significantly longer answers. This could be
+the main reason causing poor performance of the models, especially with such an
+extractive approach.
+Regarding the generative approach, Figure 15 shows that generative models have
+remarkably high potential to compensate for the downside of the extractive mod-
+els. In particular, performances on Location questions were handled with significant
+improvements. Considering the ANLS metric, it can be observed that generative mod-
+els evenly handle all types of questions, which include Minors questions with few
+samples. Nonetheless, while generative models’ performance in ANLS approximated
+80%, the preciseness of the models (represented by Accuracy, and F1) still requires
+considerable refinement and enhancement. Accuracy scores in Location questions were
+only around 40%, remaining a significant gap between them and the F1, and ANLS
+metrics. Additionally, Accuracy and F1 scores in Quantity questions were only around
+60% although this type has the shortest average length of the answers.
+26
+
+=== PAGE 27 ===
+Besides, Figure 15 shows that LiGT was competitive with ViT5+U in all question
+types, considering ViT5+U is applied to all the Text, Layout, and Visual modalities.
+However, our model has not provided exclusive solutions for current problems that
+the baseline models have faced, also struggling with the Location type. This could be
+a potential path for our future extensions.
+5.5.4 Analysis of Experimental Results on Answer Types
+Referring to the answer types mentioned in Section 3.3.2, we continued to analyze
+our main results of the aforementioned selected models on the three answer types.
+Figure 16 shows that the extractive models’ results resemble each other. The models
+gained the highest scores when using Numeric answers, and the lowest scores when
+facing Hybrid answers. Observing Figure 10, the Hybrid type has the widest range
+of length, followed by the Non-Numeric type and Numeric type. This indicates that
+extractive models perform worse when answer lengths increase. Considering similar
+issues in the question analysis 5.5.3, handling long answers seems to be one of the
+most considerable challenges for extractive models.
+With regard to generative models, Figure 16 presents an astonishing pattern in
+comparison to the extractive results’ pattern, wherein all selected generative models
+achieved the highest scores in Non-Numeric answers. A possible explanation for these
+results might be the ability to generate letters from ViT5, which is pretrained on
+a large corpus of texts. Moreover, although most of the models still had the lowest
+performances in Hybrid answers, the gaps between the Hybrid’s scores and Numeric’s
+scores are relatively small, compared with that of extractive models. This suggests
+that generative models have a certain level of resilience against answer lengths.
+5.5.5 Effect of LayoutHEI on text-only extractive baselines
+To have a more comprehensive view of our layout approach, we applied the LayoutHEI
+component, presented in Section 4.1, of our LiGT model on extractive baselines. We
+replaced the Language Model component with chosen text-only extractive baselines
+in our main evaluation. The procedure for preparing answers was followed by Section
+5.1.1. Each LayoutHEI-employed variants (denoted by +LayoutHEI ) were compared
+with its text-only version in Table 5 to view the differences in performance.
+Table 6 demonstrates that our layout approach has significant effects on various
+text-only baselines, achieving enhancements on most of the models. In particular, the
+large version PhoBERT+LayoutHEI gained a marked improvement of 3.19% ANLS,
+2.76% F1, and 1.81% Accuracy, while its base version had the highest score of all
+extractive baselines in both Table 5 and Table 6. Moreover, it can be seen that mod-
+els pretrained on Vietnamese data benefit more clearly than the multilingual models.
+This could be the reason why large XLM-Roberta+LayoutHEI witnessed a perfor-
+mance decrease in all metrics, while CafeBERT, the large XLM-Roberta additionally
+pretrained on Vietnamese data, gained a significant improvement on its LayoutHEI-
+employed variant, CafeBERT+LayoutHEI. Besides, the results in Table 6 were also
+evidence supporting the need for multimodal methodologies for tackling the Viet-
+namese receipt domain. In addition, we examined the effect of using more specific
+sources for the visual modality in Appendix C.
+27
+
+=== PAGE 28 ===
+Table 6: Effect of LayoutHEI on text-only extractive baselines. Values in parentheses
+show differences in model performances compared to corresponding scores of text-only
+models
+Model
+Version
+Metrics
+ANLS
+F1
+Accuracy
+PhoBERT+LayoutHEI
+base
+63.11 (↑1.72)
+58.83 (↑1.28)
+55.26 (↑0.35)
+large
+61.06 (↑3.19)
+56.69 (↑2.76)
+53.15 (↑1.81)
+XLM-Roberta+LayoutHEI
+base
+58.75 (↑0.75)
+54.95 (↑0.46)
+52.34 (↑0.06)
+large
+57.38 (↓0.43)
+53.01 (↓0.75)
+50.48 (↓0.49)
+InfoXLM+LayoutHEI
+base
+59.06 (↑0.73)
+54.63 (↑0.14)
+52.00 (↑0.11)
+large
+57.88 (↑0.32)
+54.32 (↑1.40)
+50.38 (↑1.30)
+CafeBERT+LayoutHEI
+large
+58.36 (↑1.77)
+54.15 (↑1.48)
+51.17 (↑0.77)
+Besides, we conducted ablation analyses on the efficiency of layout understanding
+of LiGT in Appendix B. The analyses explored the effect of hashing levels and the
+impact of the learnable ratio (ω) on the performance of LayoutHEI-employed models.
+5.5.6 LiGT performance on standard document VQA benchmarks
+We further evaluate our LiGT architecture on two standard document VQA datasets,
+DocVQA [4] and InfographicVQA [6]. We applied three English pre-trained mod-
+els, T5 [27], BART [51], and Flan-T5 [52], to our LiGT language model component.
+While T5 and BART are two of the most reputed encoder-decoder models, Flan-
+T5 models are T5 extensions that applied instruction finetuning on various aspects,
+achieving outperforming results compared with their T5 counterparts. To reduce the
+computational cost and time, we only used base versions of the chosen models.
+The annotations and extracted OCR properties available were obtained from the
+website of the Robust Reading Competition4. All LiGT models only underwent one
+training phase using the training and development sets (detailed configurations in
+Appendix D.1) and were evaluated on the test sets directly from the evaluation system
+of the website using the original ANLS [16]. In these accounts, we only compare
+our results with those of baselines without pre-training phases from the datasets’
+paper. We leave more comprehensive assessments for future investigations, where pre-
+training procedures and the effect of the extracted OCR quality would be taken into
+consideration.
+Table 7 presents the performance of our LiGT models in comparison to those
+from the chosen baselines, M4C [53], BERT [54], and LayoutLM [17]. Details of
+LiGT performance on different aspects of the datasets are also provided in Appendix
+D.2. It can be seen that our models showed promising results under the circum-
+stances of one training phase. In particular, while LiGT[T 5−base] had marginal impact,
+LiGT[F lan−T 5−base] attained 63.8% ANLS on DocVQA (surpassing BERTlarge by
+2.8%) and 30.7% ANLS on InfographicVQA (8.2% higher than that of LayoutLM).
+Interestingly, although BARTbase (∼140M) has fewer trainable parameters than
+T5base (∼220M) has, its BART’s LiGT variant had remarkably higher performance
+4https://rrc.cvc.uab.es/?ch=17
+28
+
+=== PAGE 29 ===
+than that of T5, which would indicate the potential of BART architecture for layout
+understanding. Overall, the performance of LiGT demonstrates the feasibility of our
+proposed architecture. Besides that, these results also emphasized the effectiveness of
+generative models in comparison to extractive models such as BERT and LayoutLM.
+Table 7: Performance of our LiGT architecture with different language models on
+the test sets of the DocVQA and InfographicVQA (InfoVQA) benchmark
+Models
+DocVQA
+InfoVQA
+ANLS
+ANLS
+Baselines
+M4C [53]
+39.1
+14.7
+BERTbase/BERTlarge [54]
+57.4/61.0
+-
+LayoutLM [17]
+-
+22.5
+LiGT models
+LiGT[T 5−base]
+57.6
+22.4
+LiGT[BART −base]
+59.3
+27.1
+LiGT[F lan−T 5−base]
+63.8
+30.7
+6 Conclusion and Future Works
+In this work, we presented ReceiptVQA, the first Vietnamese document VQA dataset
+for receipts. ReceiptVQA is a large-scale dataset containing 9,500 captured receipt
+images and 64,812 manually annotated question-answer pairs. Also, we introduced
+LiGT, a novel spatial-aware architecture with a backbone of an encoder-decoder
+transformer. Throughout the experiments, our LiGT model showed promising results,
+achieving competitive performances in comparison with other baselines. Moreover,
+applying LayoutHEI, the layout operating component of LiGT, to text-only extractive
+models showed significant enhancements.
+By comparing the extractive approach with the generative approach, we observed
+that the generative models outperformed the extractive models in many aspects, espe-
+cially in handling long answers. Furthermore, we found that tackling the Vietnamese
+receipt domain requires proper multimodal extension, although text modality was
+shown to play a highly vital role in the task.
+In spite of having a remarkably large number of annotations, our dataset may
+not be sufficient to reflect real-world scenarios as there exists imbalances in question
+types and answer types, and a relatively lower number of images compared to English
+document VQA datasets. Future work could address these limitations and expand the
+dataset to encompass more images with diverse inquiries.
+In addition, evaluating our LiGT architecture on two standard document datasets,
+DocVQA and InfographicVQA, also showed promising results, demonstrating that our
+method has a certain level of applicability to different document scenarios. Nonethe-
+less, as our main research scope was dedicated to the ReceiptVQA dataset and to
+explore its characteristics comprehensively, the assessment of the two benchmarks
+29
+
+=== PAGE 30 ===
+was confined to fundamental models with one phase of training. We leave for future
+work the investigation of diverging our architecture development to various training
+strategies, OCR qualities, domains, and languages.
+Acknowledgement
+This research was supported by The VNUHCM-University of Information Technol-
+ogy’s Scientific Research Support Fund.
+Author Contributions Statement
+Thanh-Phong Le: Conceptualization; Data curation; Formal analysis; Investiga-
+tion; Methodology; Validation; Visualization; Writing - original draft. Trung Phan
+Le Chi: Conceptualization; Data curation; Formal analysis; Investigation; Validation.
+Nghia Hieu Nguyen: Conceptualization; Data curation; Formal analysis; Investiga-
+tion; Validation; Writing - review & editing. Kiet Van Nguyen: Conceptualization;
+Formal analysis; Investigation; Methodology; Validation; Supervision; Writing - review
+& editing.
+Declaration of Competing Interest
+The authors declare that they have no known competing financial interests or personal
+relationships that could have appeared to influence the work reported in this paper.
+Data Availability
+Data will be made available on reasonable request.
+Appendix A
+Further dataset analysis on the
+Part-of-Speech tagging perspective
+To have an overview of language properties in our questions, we made use of PhoNLP
+[55], a PhoBERT-based [40] NLP model designed for core NLP tasks (Part-of-
+Speech (POS) tagging, named entity recognition (NER) and dependency parsing), to
+obtain POS tags in the questions. We additionally used VnCoreNLP tool [56] to seg-
+ment the questions before feeding them to PhoNLP. A segmentation step essentially
+groups white-space-separated syllables into one multi-syllable word. It is a crucial
+pre-processing step to conduct Vietnamese core NLP tasks due to the monosyllabic
+attribute of the Vietnamese language, mentioned in 3.2.
+Figure 17 reveals characteristics of our dataset in the Part-of-Speech (POS) tag-
+ging perspective; definitions of the POS tags, originated from the VLSP 2013 POS
+tagging dataset 5, are shown in Table 7. As illustrated in Figure 17a, the questions
+encompass beyond 200,000 nouns (N), more than 125,000 verbs (V), and more than
+75,000 pronouns (P), while excluding foreign/borrowed verb (Vb), interjection (I),
+5https://vlsp.org.vn/vlsp2013/eval
+30
+
+=== PAGE 31 ===
+abbreviation (Y), and bound morpheme (Z). Moreover, Figure 17b shows that there
+is a variety of POS tags in the questions with the majority consisting of from five to
+seven distinct tags.
+Table 7: POS Tags and Definitions, originated from the VLSP 2013 POS tagging
+dataset
+Tag
+Definition
+Np
+Proper noun
+Nc
+Classifier noun
+Nu
+Unit noun
+N
+Noun
+Ny
+Abbreviated noun
+Nb
+(Foreign) borrowed noun
+V
+Verb
+Vb
+(Foreign) borrowed verb
+A
+Adjective
+P
+Pronoun
+R
+Adverb
+L
+Determiner
+M
+Numeral/Quantity
+E
+Preposition
+C
+Subordinating conjunction
+Cc
+Coordinating conjunction
+I
+Interjection/Exclamation
+T
+Particle/Auxiliary, modal words
+Y
+Abbreviation
+Z
+Bound morpheme
+X
+Un-definition/Other
+CH
+Punctuation and symbols
+Appendix B
+Ablation Analysis on the layout
+understanding of LiGT model
+We further analyzed important factors of the LayoutHEI component, e.g., the number
+of levels for layout hashing and the learnable ratio (ω) on both extractive and gen-
+erative perspectives. To reduce computational cost and time, all models were applied
+with their base versions to create variants for the experiments.
+B.1
+Impact of Hashed Levels on LayoutHEI-Employed
+Models
+Technically, the more hashed levels are employed, the more specifically the layout
+information could be represented. However, the correlation between specificity and
+performance could be different. For this reason, we created four variants applied from
+two to five hashed levels for each examined baseline and compared them with their cor-
+responding text-only results. For extractive models, we used PhoBERT+LayoutHEI,
+mentioned in Section 5.5.5, to compare with PhoBERT. For generative models, we
+31
+
+=== PAGE 32 ===
+compared our proposed model LiGT with its employed language model ViT5. We also
+considered the value of the ratio (ω) after the training process to see how it adapts
+to each variant.
+Table 8: LayoutHEI-Employed models’ performances on different numbers of hashed
+levels. Values in parentheses show differences in model performances compared to
+corresponding scores of text-only models. All models are base versions
+Model
+Level
+Metrics
+Ratio
+(L)
+ANLS
+F1
+Accuracy
+(ω)
+PhoBERT+LayoutHEI
+2
+60.70 (↓0.69)
+56.20 (↓1.35)
+53.18 (↓1.73)
+0.5949
+3
+61.55 (↑0.16)
+57.35 (↓0.20)
+54.75 (↓0.16)
+0.5792
+4
+63.11 (↑1.72)
+58.83 (↑1.28)
+55.26 (↑0.35)
+0.5737
+5
+61.40 (↑0.01)
+57.32 (↓0.23)
+54.49 (↓0.42)
+0.5654
+LiGT
+2
+78.36 (↑0.28)
+67.60 (↑0.56)
+62.35 (↑0.53)
+0.5476
+3
+79.07 (↑0.99)
+67.72 (↑0.68)
+62.32 (↑0.50)
+0.5491
+4
+78.78 (↑0.70)
+67.90 (↑0.86)
+62.63 (↑0.81)
+0.5492
+5
+78.32 (↑0.24)
+67.60 (↑0.56)
+62.29 (↑0.47)
+0.5529
+Table 8 shows that an adequate number of hashed levels enhanced the perfor-
+mances. In particular, performances of variants of the two architectures increased when
+applying from two levels to four levels, and decreased when we continued to apply five
+levels. Applying four hashed levels yielded the highest results, followed by applying
+three levels. In addition, it can be seen that the generative model was more stable
+than the extractive model, presented by the performance gaps between the variants.
+Besides, the ratio (ω) shows an interesting pattern apart from its distribution
+between 0.54 to 0.6. While the ratio of PhoBERT+LayoutHEI dropped slightly as we
+increased the number of levels, the ratio of LiGT had an upward trend.
+B.2
+Impact of Applying Ratio (ω) in the
+LayoutHEI-Employed Models
+To have a clearer view of using the ratio (ω), we continued to evaluate variants of our
+PhoBERT+LayoutHEI and LiGT, wherein the ratios are removed. Our configuration
+in this experiment is similar to setting the ratio to 1.0 all the time. The experiments
+were examined on three and four hashed levels due to their prominent performances
+in prior evaluation, shown in Table 8. In this experiment, we compared the variants
+without the ratio (ω) with those having full settings from Table 8.
+Table 9 and Table 10 present that removing the adaptive ratio could hinder mod-
+els’ performance. In particular, LiGT witnessed a considerable decline in its both two
+variants in all metrics. Additionally, while the variant of PhoBERT+LayoutHEI hav-
+ing three levels achieved marked improvements, there was a significant drop in the
+variant applied four levels. The results demonstrated that the absence of ratio (ω)
+could either cause unstable or poor performances, making the layout understanding
+ability sub-optimal.
+32
+
+=== PAGE 33 ===
+Table 9: Performances of 3-level LayoutHEI-employed models without the ratio ω,
+denoted by *. Values in parentheses show differences in the model performances com-
+pared to scores of their corresponding models applied the ratio. All models are base
+versions
+Metric
+Models
+PhoBERT
+LiGT*
+LayoutHEI*
+ANLS
+62.17 (↑0.62)
+77.99 (↓1.08)
+F1
+58.14 (↑0.79)
+67.28 (↓0.44)
+Accuracy
+54.89 (↑0.14)
+61.58 (↓0.74)
+Table 10: Performances of 4-level LayoutHEI-employed models without the ratio
+ω, denoted by *. Values in parentheses show differences in the model performances
+compared to scores of their corresponding models applied the ratio. All models are
+base versions
+Metric
+Models
+PhoBERT
+LiGT*
+LayoutHEI*
+ANLS
+61.70 (↓1.41)
+78.45 (↓0.33)
+F1
+57.59 (↓1.24)
+67.68 (↓0.22)
+Accuracy
+54.35 (↓0.91)
+62.26 (↓0.37)
+Appendix C
+Effect of Visual Specialties on
+Generative Baselines
+For experiments on visual impact, we replace the visual components of ViT5+U,
+ViT5+2D+U, and LaTr with our chosen visual sources. In particular, we made use of
+features of VietOCR 6, a widely-used OCR extraction tool for Vietnamese, to compare
+with U-Net in ViT5+U and ViT5+2D+U; we applied DiT [57] in comparison with ViT
+in LaTr. We leverage VietOCR’s pretrained model having the highest performance
+(the combination of VGG net [58] and Transformer [59]). We cropped out portions of
+text in the image. These cropped images were then projected through VGG net and
+encoder layers of the chosen model to gain visual features to replace U-Net. About
+LaTr, DiT is a transformer-based model pretrained on the document domain. We
+replaced ViT in LaTr with DiT to assess the impact of domain-specific factors on the
+model. To reduce computational cost and time, all models were applied with their
+base versions.
+As shown in Table 11 and Table 12, although ViT5+VietOCR achieved ANLS
+higher than 79%, its F1 and Accuracy score had a slight drop. ViT5+2D+VietOCR
+also followed the same pattern despite having an increase in ANLS by nearly 0.5%.
+6https://github.com/pbcquoc/vietocr
+33
+
+=== PAGE 34 ===
+Table 11: Effect of varying sources of vision modality when replacing U-Net with
+VietOCR features in ViT5+U and ViT5+2D+U. All models are base versions
+Metric
+Models
+ViT5+VietOCR
+ViT5+2D
++VietOCR
+ANLS
+79.06 (↑0.08)
+76.39 (↑0.48)
+F1
+67.75 (↓0.14)
+64.93 (↓0.15)
+Accuracy
+62.38 (↓0.08)
+59.66 (↓0.26)
+Table 12: Effect of varying sources of vision modality when replacing ViT with DiT
+in LaTr. All models are base versions
+Model
+ANLS
+F1
+Accuracy
+LaTr(DiT)
+74.27
+62.00
+56.65
+(↑0.29)
+(↑0.47)
+(↑0.28)
+Regarding LaTr, while using a domain-specific visual module like DiT showed improve-
+ments in all metrics, the differences did not make it competitive with other generative
+baselines. These observations suggest that the impact of visual modalities on the
+receipt domain in Vietnamese might have certain limits and need more investigation
+on both enriching visual sources and developing visual integrating methodologies.
+Appendix D
+Detail of the evaluation of LiGT on
+DocVQA and InfographicVQA
+D.1
+Configuration of LiGT language model components on
+DocVQA and InfographicVQA
+Table 13: Configuration of LiGT language models for DocVQA and InfographicVQA.
+All models are base versions
+Config
+T5
+BART
+Flan-T5
+Learning rate
+1e-3
+5e-5
+1e-4
+Max token
+512
+512
+450
+Warmup step
+1000
+Epoch
+10
+Hashed level
+4
+34
+
+=== PAGE 35 ===
+Table 14: Details of LiGT performance using different language models on the aspects
+of DocVQA. Names of the aspects are from the Robust Reading Competition website.
+All models are base versions
+Aspect
+T5
+BART
+Flan-T5
+Figure/Diagram
+26.28
+30.90
+32.44
+Form
+72.74
+72.32
+75.80
+Table/List
+51.78
+55.13
+57.51
+Layout
+61.73
+61.19
+67.73
+Free text
+57.61
+60.71
+68.07
+Image/Photo
+24.89
+36.48
+38.43
+Handwritten
+51.44
+51.15
+51.51
+Yes/No
+37.93
+44.83
+62.07
+Others
+47.67
+46.23
+55.63
+Table 15: Details of LiGT performance using different language models on the aspects
+of InfographicVQA. Names of the aspects are from the Robust Reading Competition
+website. All models are base versions
+Aspect
+T5
+BART
+Flan-T5
+Answer type
+Image span
+22.85
+29.08
+32.57
+Question span
+48.53
+46.76
+54.09
+Multiple spans
+6.44
+10.96
+15.82
+Non span
+18.53
+17.75
+20.49
+Evidence
+Table/List
+20.48
+23.74
+29.2
+Textual
+27.10
+32.60
+36.12
+Visual object
+20.07
+20.01
+26.91
+Figure
+20.57
+26.08
+28.46
+Map
+16.54
+18.49
+29.49
+Operation
+Comparison
+20.51
+23.93
+31.70
+Arithmetic
+19.40
+18.29
+20.40
+Counting
+17.47
+17.37
+20.77
+D.2
+LiGT performance on different aspects of DocVQA and
+InfographicVQA
+References
+[1] Antol, S., Agrawal, A., Lu, J., Mitchell, M., Batra, D., Zitnick, C.L., Parikh,
+D.: Vqa: Visual question answering. In: Proceedings of the IEEE International
+Conference on Computer Vision (ICCV) (2015)
+[2] Sharma, H., Jalal, A.S.: A survey of methods, datasets and evaluation metrics
+for visual question answering. Image and Vision Computing 116, 104327 (2021)
+https://doi.org/10.1016/j.imavis.2021.104327
+35
+
+=== PAGE 36 ===
+[3] Ishmam, M.F., Shovon, M.S.H., Mridha, M.F., Dey, N.: From image to language:
+A critical analysis of visual question answering (vqa) approaches, challenges, and
+opportunities. Information Fusion 106, 102270 (2024) https://doi.org/10.1016/
+j.inffus.2024.102270
+[4] Mathew, M., Karatzas, D., Jawahar, C.: Docvqa: A dataset for vqa on document
+images. In: Proceedings of the IEEE/CVF Winter Conference on Applications of
+Computer Vision, pp. 2200–2209 (2021)
+[5] Tanaka, R., Nishida, K., Yoshida, S.: Visualmrc: Machine reading comprehen-
+sion on document images. In: Proceedings of the AAAI Conference on Artificial
+Intelligence, vol. 35, pp. 13878–13888 (2021)
+[6] Mathew, M., Bagal, V., Tito, R., Karatzas, D., Valveny, E., Jawahar, C.V.:
+Infographicvqa. In: Proceedings of the IEEE/CVF Winter Conference on Appli-
+cations of Computer Vision (WACV), pp. 1697–1706 (2022)
+[7] Masry, A., Do, X.L., Tan, J.Q., Joty, S., Hoque, E.: ChartQA: A benchmark
+for question answering about charts with visual and logical reasoning. In: Mure-
+san, S., Nakov, P., Villavicencio, A. (eds.) Findings of the Association for
+Computational Linguistics: ACL 2022, pp. 2263–2279. Association for Compu-
+tational Linguistics, Dublin, Ireland (2022). https://doi.org/10.18653/v1/2022.
+findings-acl.177 . https://aclanthology.org/2022.findings-acl.177
+[8] Huang, Z., Chen, K., He, J., Bai, X., Karatzas, D., Lu, S., Jawahar, C.: Icdar2019
+competition on scanned receipt ocr and information extraction. In: 2019 Inter-
+national Conference on Document Analysis and Recognition (ICDAR), pp.
+1516–1520 (2019). IEEE
+[9] Park, S., Shin, S., Lee, B., Lee, J., Surh, J., Seo, M., Lee, H.: Cord: a consolidated
+receipt dataset for post-ocr parsing. In: Workshop on Document Intelligence at
+NeurIPS 2019 (2019)
+[10] Tran, K.Q., Nguyen, A.T., Le, A.T.-H., Nguyen, K.V.: Vivqa: Vietnamese visual
+question answering. In: Proceedings of the 35th Pacific Asia Conference on
+Language, Information and Computation, pp. 546–554. Association for Compu-
+tational Lingustics, Shanghai, China (2021). https://aclanthology.org/2021.paclic-
+1.72/
+[11] Nguyen, N.H., Vo, D.T.D., Van Nguyen, K., Nguyen, N.L.-T.: Openvivqa: Task,
+dataset, and multimodal fusion models for visual question answering in viet-
+namese. Information Fusion 100, 101868 (2023) https://doi.org/10.1016/j.inffus.
+2023.101868
+[12] Luu-Thuy Nguyen, N., Nguyen, N.H., T.D. Vo, D., Tran, K.Q., Nguyen, K.V.:
+Evjvqa challenge: Multilingual visual question answering. Journal of Computer
+Science and Cybernetics, 237–258 (2023) https://doi.org/10.15625/1813-9663/
+36
+
+=== PAGE 37 ===
+18157
+[13] Phuc, N.B., Nguyen, T.H., Tho, Q.T.: Vican: Co-attention network for viet-
+namese visual question answering. Fundamental and Applied Information Tech-
+nology (FAIR) (2020)
+[14] Tran, K.V., Van Nguyen, K., Nguyen, N.L.T.: Bartphobeit: Pre-trained sequence-
+to-sequence and image transformers models for vietnamese visual question
+answering. In: 2023 International Conference on Multimedia Analysis and Pattern
+Recognition (MAPR), pp. 1–6 (2023). IEEE
+[15] Singh, A., Natarajan, V., Shah, M., Jiang, Y., Chen, X., Batra, D., Parikh,
+D., Rohrbach, M.: Towards vqa models that can read. In: Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 8317–
+8326 (2019)
+[16] Biten, A.F., Tito, R., Mafla, A., Gomez, L., Rusinol, M., Valveny, E., Jawahar,
+C., Karatzas, D.: Scene text visual question answering. In: Proceedings of the
+IEEE/CVF International Conference on Computer Vision, pp. 4291–4301 (2019)
+[17] Xu, Y., Li, M., Cui, L., Huang, S., Wei, F., Zhou, M.: Layoutlm: Pre-training
+of text and layout for document image understanding. In: Proceedings of
+the 26th ACM SIGKDD International Conference on Knowledge Discovery &
+Data Mining. KDD ’20, pp. 1192–1200. Association for Computing Machin-
+ery, New York, NY, USA (2020). https://doi.org/10.1145/3394486.3403172 .
+https://doi.org/10.1145/3394486.3403172
+[18] Xu, Y., Xu, Y., Lv, T., Cui, L., Wei, F., Wang, G., Lu, Y., Florencio, D.,
+Zhang, C., Che, W., Zhang, M., Zhou, L.: LayoutLMv2: Multi-modal pre-training
+for visually-rich document understanding. In: Zong, C., Xia, F., Li, W., Nav-
+igli, R. (eds.) Proceedings of the 59th Annual Meeting of the Association for
+Computational Linguistics and the 11th International Joint Conference on Nat-
+ural Language Processing (Volume 1: Long Papers), pp. 2579–2591. Association
+for Computational Linguistics, Online (2021). https://doi.org/10.18653/v1/2021.
+acl-long.201 . https://aclanthology.org/2021.acl-long.201
+[19] Powalski, R., Borchmann, L., Jurkiewicz, D., Dwojak, T., Pietruszka, M., Pa lka,
+G.: Going full-tilt boogie on document understanding with text-image-layout
+transformer. In: Document Analysis and Recognition–ICDAR 2021: 16th Inter-
+national Conference, Lausanne, Switzerland, September 5–10, 2021, Proceedings,
+Part II 16, pp. 732–747 (2021). Springer
+[20] Appalaraju, S., Jasani, B., Kota, B.U., Xie, Y., Manmatha, R.: Docformer:
+End-to-end transformer for document understanding. In: Proceedings of the
+IEEE/CVF International Conference on Computer Vision, pp. 993–1003 (2021)
+[21] Tang, Z., Yang, Z., Wang, G., Fang, Y., Liu, Y., Zhu, C., Zeng, M., Zhang, C.,
+37
+
+=== PAGE 38 ===
+Bansal, M.: Unifying vision, text, and layout for universal document processing.
+In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pp. 19254–19264 (2023)
+[22] Appalaraju, S., Tang, P., Dong, Q., Sankaran, N., Zhou, Y., Manmatha, R.:
+Docformerv2: Local features for document understanding. In: Proceedings of the
+AAAI Conference on Artificial Intelligence, vol. 38, pp. 709–718 (2024)
+[23] Tanaka, R., Nishida, K., Nishida, K., Hasegawa, T., Saito, I., Saito, K.: Slidevqa:
+A dataset for document visual question answering on multiple images. In: AAAI
+(2023)
+[24] Ding, Y., Luo, S., Chung, H., Han, S.C.: Vqa: A new dataset for real-world
+vqa on pdf documents. In: Joint European Conference on Machine Learning and
+Knowledge Discovery in Databases, pp. 585–601 (2023). Springer
+[25] Van Landeghem, J., Tito, R., Borchmann, L., Pietruszka, M., Joziak, P., Powal-
+ski, R., Jurkiewicz, D., Coustaty, M., Anckaert, B., Valveny, E., et al.: Document
+understanding dataset and evaluation (dude). In: Proceedings of the IEEE/CVF
+International Conference on Computer Vision, pp. 19528–19540 (2023)
+[26] Huang, Y., Lv, T., Cui, L., Lu, Y., Wei, F.: Layoutlmv3: Pre-training for docu-
+ment ai with unified text and image masking. In: Proceedings of the 30th ACM
+International Conference on Multimedia, pp. 4083–4091 (2022)
+[27] Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., Zhou, Y., Li,
+W., Liu, P.J.: Exploring the limits of transfer learning with a unified text-to-text
+transformer. Journal of machine learning research 21(140), 1–67 (2020)
+[28] Begaev, A., Orlov, E.: Receipt-avqa-2023 challenge. In: Proceedings of the
+International Conference “Dialogue, vol. 2023 (2023). https://doi.org/10.28995/
+2075-7182-2023-22-1-11
+[29] Vu, X.-S., Bui, Q.-A., Nguyen, N.-V., Hai Nguyen, T.T., Vu, T.: Mc-ocr challenge:
+Mobile-captured image document recognition for vietnamese receipts. In: 2021
+RIVF International Conference on Computing and Communication Technologies
+(RIVF), pp. 1–6 (2021). https://doi.org/10.1109/RIVF51545.2021.9642077
+[30] Ren, M., Kiros, R., Zemel, R.: Exploring models and data for image question
+answering. Advances in neural information processing systems 28 (2015)
+[31] Nguyen, N.H., Van Nguyen, K.: Pat: Parallel attention transformer for visual
+question answering in vietnamese. In: 2023 International Conference on Multi-
+media Analysis and Pattern Recognition (MAPR), pp. 1–6 (2023). IEEE
+[32] Siemund, P.: Interrogative constructions. Language typology and language
+universals 2, 1010–1028 (2001)
+38
+
+=== PAGE 39 ===
+[33] Ngo, B.: Vietnamese: An Essential Grammar. Routledge, ??? (2020)
+[34] Biten, A.F., Litman, R., Xie, Y., Appalaraju, S., Manmatha, R.: Latr: Layout-
+aware transformer for scene-text vqa. In: Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition, pp. 16548–16558
+(2022)
+[35] Fang, C., Li, J., Li, L., Ma, C., Hu, D.: Separate and locate: Rethink the text
+in text-based visual question answering. In: Proceedings of the 31st ACM Inter-
+national Conference on Multimedia. MM ’23, pp. 4378–4388. Association for
+Computing Machinery, New York, NY, USA (2023). https://doi.org/10.1145/
+3581783.3611753 . https://doi.org/10.1145/3581783.3611753
+[36] Kil, J., Changpinyo, S., Chen, X., Hu, H., Goodman, S., Chao, W.-L., Sori-
+cut, R.: Prestu: Pre-training for scene-text understanding. In: Proceedings of
+the IEEE/CVF International Conference on Computer Vision, pp. 15270–15280
+(2023)
+[37] Phan, L., Tran, H., Nguyen, H., Trinh, T.H.: ViT5: Pretrained text-to-text trans-
+former for Vietnamese language generation. In: Ippolito, D., Li, L.H., Pacheco,
+M.L., Chen, D., Xue, N. (eds.) Proceedings of the 2022 Conference of the North
+American Chapter of the Association for Computational Linguistics: Human Lan-
+guage Technologies: Student Research Workshop, pp. 136–142. Association for
+Computational Linguistics, Hybrid: Seattle, Washington + Online (2022). https:
+//doi.org/10.18653/v1/2022.naacl-srw.18 . https://aclanthology.org/2022.naacl-
+srw.18
+[38] Conneau, A., Khandelwal, K., Goyal, N., Chaudhary, V., Wenzek, G., Guzmán,
+F., Grave, E., Ott, M., Zettlemoyer, L., Stoyanov, V.: Unsupervised cross-
+lingual representation learning at scale. In: Jurafsky, D., Chai, J., Schluter, N.,
+Tetreault, J. (eds.) Proceedings of the 58th Annual Meeting of the Associa-
+tion for Computational Linguistics, pp. 8440–8451. Association for Computa-
+tional Linguistics, Online (2020). https://doi.org/10.18653/v1/2020.acl-main.747
+. https://aclanthology.org/2020.acl-main.747
+[39] Chi, Z., Dong, L., Wei, F., Yang, N., Singhal, S., Wang, W., Song, X., Mao,
+X.-L., Huang, H., Zhou, M.: InfoXLM: An information-theoretic framework
+for cross-lingual language model pre-training. In: Toutanova, K., Rumshisky,
+A., Zettlemoyer, L., Hakkani-Tur, D., Beltagy, I., Bethard, S., Cotterell, R.,
+Chakraborty, T., Zhou, Y. (eds.) Proceedings of the 2021 Conference of the
+North American Chapter of the Association for Computational Linguistics:
+Human Language Technologies, pp. 3576–3588. Association for Computational
+Linguistics, Online (2021). https://doi.org/10.18653/v1/2021.naacl-main.280 .
+https://aclanthology.org/2021.naacl-main.280
+[40] Nguyen, D.Q., Tuan Nguyen, A.: PhoBERT: Pre-trained language models for
+39
+
+=== PAGE 40 ===
+Vietnamese. In: Cohn, T., He, Y., Liu, Y. (eds.) Findings of the Associa-
+tion for Computational Linguistics: EMNLP 2020, pp. 1037–1042. Association
+for Computational Linguistics, Online (2020). https://doi.org/10.18653/v1/2020.
+findings-emnlp.92 . https://aclanthology.org/2020.findings-emnlp.92
+[41] Do, P., Tran, S., Hoang, P., Nguyen, K., Nguyen, N.: Vlue: A new benchmark and
+multi-task knowledge transfer learning for vietnamese natural language under-
+standing. In: Findings of the Association for Computational Linguistics: NAACL
+2024, pp. 211–222 (2024)
+[42] Wang, J., Jin, L., Ding, K.: LiLT: A simple yet effective language-independent
+layout transformer for structured document understanding. In: Proceedings
+of the 60th Annual Meeting of the Association for Computational Linguis-
+tics (Volume 1: Long Papers), pp. 7747–7757. Association for Computa-
+tional Linguistics, ??? (2022). https://doi.org/10.18653/v1/2022.acl-long.534 .
+https://aclanthology.org/2022.acl-long.534
+[43] Xu, Y., Lv, T., Cui, L., Wang, G., Lu, Y., Florencio, D., Zhang, C., Wei, F.:
+XFUND: A benchmark dataset for multilingual visually rich form understanding.
+In: Muresan, S., Nakov, P., Villavicencio, A. (eds.) Findings of the Association for
+Computational Linguistics: ACL 2022, pp. 3214–3224. Association for Compu-
+tational Linguistics, Dublin, Ireland (2022). https://doi.org/10.18653/v1/2022.
+findings-acl.253 . https://aclanthology.org/2022.findings-acl.253
+[44] Borchmann,
+ L., Pietruszka, M., Stanislawek, T., Jurkiewicz, D., Turski,
+M., Szyndler, K., Grali´nski, F.: DUE: End-to-end document understand-
+ing
+benchmark.
+In:
+Thirty-fifth
+Conference
+on
+Neural
+Information
+Pro-
+cessing
+Systems
+Datasets
+and
+Benchmarks
+Track
+(Round
+2)
+(2021).
+https://openreview.net/forum?id=rNs2FvJGDK
+[45] Ronneberger, O., Fischer, P., Brox, T.: U-net: Convolutional networks for biomed-
+ical image segmentation. In: Medical Image Computing and Computer-assisted
+intervention–MICCAI 2015: 18th International Conference, Munich, Germany,
+October 5-9, 2015, Proceedings, Part III 18, pp. 234–241 (2015). Springer
+[46] Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner,
+T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., Houlsby,
+N.: An image is worth 16x16 words: Transformers for image recognition
+at scale. In: International Conference on Learning Representations (2021).
+https://openreview.net/forum?id=YicbFdNTTy
+[47] Ren, S., He, K., Girshick, R., Sun, J.: Faster r-cnn: Towards real-time object
+detection with region proposal networks. Advances in neural information process-
+ing systems 28 (2015)
+[48] Levenshtein, V.: Binary codes capable of correcting deletions, insertions, and
+reversals. Proceedings of the Soviet physics doklady (1966)
+40
+
+=== PAGE 41 ===
+[49] Kingma, D.P., Ba, J.: Adam: A method for stochastic optimization. ICLR (2015)
+[50] Wolf, T., Debut, L., Sanh, V., Chaumond, J., Delangue, C., Moi, A., Cistac,
+P., Rault, T., Louf, R., Funtowicz, M., Davison, J., Shleifer, S., Platen, P., Ma,
+C., Jernite, Y., Plu, J., Xu, C., Scao, T.L., Gugger, S., Drame, M., Lhoest,
+Q., Rush, A.M.: HuggingFace’s Transformers: State-of-the-art Natural Language
+Processing (2020). https://arxiv.org/abs/1910.03771
+[51] Lewis, M., Liu, Y., Goyal, N., Ghazvininejad, M., Mohamed, A., Levy, O.,
+Stoyanov, V., Zettlemoyer, L.: BART: denoising sequence-to-sequence pre-
+training for natural language generation, translation, and comprehension. CoRR
+abs/1910.13461 (2019) 1910.13461
+[52] Chung, H.W., Hou, L., Longpre, S., Zoph, B., Tay, Y., Fedus, W., Li, Y., Wang,
+X., Dehghani, M., Brahma, S., et al.: Scaling instruction-finetuned language
+models. Journal of Machine Learning Research 25(70), 1–53 (2024)
+[53] Hu, R., Singh, A., Darrell, T., Rohrbach, M.: Iterative answer prediction with
+pointer-augmented multimodal transformers for textvqa. In: Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 9992–
+10002 (2020)
+[54] Devlin, J., Chang, M.-W., Lee, K., Toutanova, K.: BERT: Pre-training of deep
+bidirectional transformers for language understanding. In: Burstein, J., Doran,
+C., Solorio, T. (eds.) Proceedings of the 2019 Conference of the North Ameri-
+can Chapter of the Association for Computational Linguistics: Human Language
+Technologies, Volume 1 (Long and Short Papers), pp. 4171–4186. Association for
+Computational Linguistics, Minneapolis, Minnesota (2019). https://doi.org/10.
+18653/v1/N19-1423 . https://aclanthology.org/N19-1423/
+[55] Nguyen, L.T., Nguyen, D.Q.: PhoNLP: A joint multi-task learning model for
+Vietnamese part-of-speech tagging, named entity recognition and dependency
+parsing. In: Proceedings of the 2021 Conference of the North American Chapter of
+the Association for Computational Linguistics: Demonstrations, pp. 1–7 (2021)
+[56] Vu, T., Nguyen, D.Q., Nguyen, D.Q., Dras, M., Johnson, M.: VnCoreNLP: A
+Vietnamese natural language processing toolkit. In: Liu, Y., Paek, T., Patward-
+han, M. (eds.) Proceedings of the 2018 Conference of the North American Chapter
+of the Association for Computational Linguistics: Demonstrations, pp. 56–60.
+Association for Computational Linguistics, New Orleans, Louisiana (2018). https:
+//doi.org/10.18653/v1/N18-5012 . https://aclanthology.org/N18-5012
+[57] Li, J., Xu, Y., Lv, T., Cui, L., Zhang, C., Wei, F.: Dit: Self-supervised pre-training
+for document image transformer. In: Proceedings of the 30th ACM International
+Conference on Multimedia, pp. 3530–3539 (2022)
+[58] Simonyan, K., Zisserman, A.: Very deep convolutional networks for large-scale
+41
+
+=== PAGE 42 ===
+image recognition. ICLR (2015)
+[59] Vaswani, A.: Attention is all you need. Advances in Neural Information Processing
+Systems (2017)
+42
+
+=== PAGE 43 ===
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(a) PhoBERTbase
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(b) PhoBERTlarge
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(c) LiLT[P hoBERT ]
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(d) LayoutXLM
+Extractive Methods
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(e) ViT5+Ubase
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(f) ViT5+Ularge
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(g) LiGTbase
+Object
+Quantity
+Time
+Location
+Person/
+People
+Minors
+Object
+0
+20
+40
+60
+80
+100
+ANLS
+F1
+Accuracy
+(h) LiGTlarge
+Generative Methods
+Fig. 15: Main results on question types according to selected extractive and genera-
+tive methods. Minors type encompasses Reason, Manner, and Other, which are types
+having few samples
+43
+
+=== PAGE 44 ===
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(a) PhoBERTbase
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(b) PhoBERTlarge
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(c) LiLT[P hoBERT ]
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(d) LayoutXLM
+Extractive Methods
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(e) ViT5+Ubase
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(f) ViT5+Ularge
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(g) LiGTbase
+ANLS
+F1
+Accuracy
+0
+20
+40
+60
+80
+100
+Scores (%)
+Numeric
+Non-Numeric
+Hybrid
+(h) LiGTlarge
+Generative Methods
+Fig. 16: Main results on answer types according to selected extractive and generative
+methods. The extractive methods are presented in the first row, and the generative
+methods are shown in the second row
+44
+
+=== PAGE 45 ===
+0
+50000
+100000
+150000
+200000
+250000
+Frequency
+N
+V
+P
+E
+M
+Np
+R
+Ny
+C
+L
+A
+Nu
+Nc
+X
+Cc
+Nb
+T
+Vb
+I
+Y
+Z
+POS Tags
+206812
+133210
+76505
+54623
+28627
+20186
+20095
+14872
+11461
+6336
+6190
+3839
+2792
+1373
+934
+734
+201
+0
+0
+0
+0
+(a) Distribution of each POS tag
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+Number of distinct POS tags
+0
+2000
+4000
+6000
+8000
+10000
+12000
+14000
+16000
+18000
+20000
+22000
+Frequency
+1
+14
+121
+4418
+15970
+20966
+14333
+6446
+2089
+381
+67
+5
+1
+(b) Distribution of distinct POS tags in a ques-
+tion
+Fig. 17: Distributions of POS tag in the questions
+45

@@ -1,0 +1,869 @@
+                                                  TAPAS: Weakly Supervised Table Parsing via Pre-training
+
+                                                         Jonathan Herzig1,2, Pawel Krzysztof Nowak1, Thomas Mu¨ ller1,
+                                                                  Francesco Piccinno1, Julian Martin Eisenschlos1
+
+                                                                                      1Google Research
+                                                                   2School of Computer Science, Tel-Aviv University
+                                        {jherzig,pawelnow,thomasmueller,piccinno,eisenjulian}@google.com
+
+arXiv:2004.02349v2 [cs.IR] 21 Apr 2020                        Abstract                         the burden of data collection for semantic parsing,
+                                                                                               including paraphrasing (Wang et al., 2015), human
+                                             Answering natural language questions over ta-     in the loop (Iyer et al., 2017; Lawrence and Rie-
+                                             bles is usually seen as a semantic parsing task.  zler, 2018) and training on examples from other
+                                             To alleviate the collection cost of full logical  domains (Herzig and Berant, 2017; Su and Yan,
+                                             forms, one popular approach focuses on weak       2017). One prominent data collection approach
+                                             supervision consisting of denotations instead     focuses on weak supervision where a training ex-
+                                             of logical forms. However, training seman-        ample consists of a question and its denotation
+                                             tic parsers from weak supervision poses diffi-    instead of the full logical form (Clarke et al., 2010;
+                                             culties, and in addition, the generated logical   Liang et al., 2011; Artzi and Zettlemoyer, 2013).
+                                             forms are only used as an intermediate step       Although appealing, training semantic parsers from
+                                             prior to retrieving the denotation. In this pa-   this input is often difficult due to the abundance of
+                                             per, we present TAPAS, an approach to ques-       spurious logical forms (Berant et al., 2013; Guu
+                                             tion answering over tables without generating     et al., 2017) and reward sparsity (Agarwal et al.,
+                                             logical forms. TAPAS trains from weak super-      2019; Muhlgay et al., 2019).
+                                             vision, and predicts the denotation by select-
+                                             ing table cells and optionally applying a cor-       In addition, semantic parsing applications only
+                                             responding aggregation operator to such selec-    utilize the generated logical form as an intermedi-
+                                             tion. TAPAS extends BERT's architecture to        ate step in retrieving the answer. Generating logi-
+                                             encode tables as input, initializes from an ef-   cal forms, however, introduces difficulties such as
+                                             fective joint pre-training of text segments and   maintaining a logical formalism with sufficient ex-
+                                             tables crawled from Wikipedia, and is trained     pressivity, obeying decoding constraints (e.g. well-
+                                             end-to-end. We experiment with three differ-      formedness), and the label bias problem (Andor
+                                             ent semantic parsing datasets, and find that      et al., 2016; Lafferty et al., 2001).
+                                             TAPAS outperforms or rivals semantic parsing
+                                             models by improving state-of-the-art accuracy        In this paper we present TAPAS (for Table
+                                             on SQA from 55.1 to 67.2 and performing on        Parser), a weakly supervised question answering
+                                             par with the state-of-the-art on WIKISQL and      model that reasons over tables without generating
+                                             WIKITQ, but with a simpler model architec-        logical forms. TAPAS predicts a minimal program
+                                             ture. We additionally find that transfer learn-   by selecting a subset of the table cells and a possi-
+                                             ing, which is trivial in our setting, from WIK-   ble aggregation operation to be executed on top of
+                                             ISQL to WIKITQ, yields 48.7 accuracy, 4.2         them. Consequently, TAPAS can learn operations
+                                             points above the state-of-the-art.                from natural language, without the need to spec-
+                                                                                               ify them in some formalism. This is implemented
+                                        1 Introduction                                         by extending BERT's architecture (Devlin et al.,
+                                                                                               2019) with additional embeddings that capture tab-
+                                        Question answering from semi-structured tables is      ular structure, and with two classification layers
+                                        usually seen as a semantic parsing task where the      for selecting cells and predicting a corresponding
+                                        question is translated to a logical form that can be   aggregation operator.
+                                        executed against the table to retrieve the correct
+                                        denotation (Pasupat and Liang, 2015; Zhong et al.,        Importantly, we introduce a pre-training method
+                                        2017; Dasigi et al., 2019; Agarwal et al., 2019).      for TAPAS, crucial for its success on the end task.
+                                        Semantic parsers rely on supervised training data      We extend BERT's masked language model objec-
+                                        that pairs natural language questions with logical     tive to structured data, and pre-train the model over
+                                        forms, but such data is expensive to annotate.
+
+                                           In recent years, many attempts aim to reduce
+millions of tables and related text segments crawled      op Pa(op)      compute(op,Ps,T)                        Rank ... Days Ps
+from Wikipedia. During pre-training, the model          NONE 0
+masks some tokens from the text segment and from                                -                                1       ...       37        0.9
+the table itself, where the objective is to predict
+the original masked token based on the textual and      COUNT 0.1        .9 + .9 + .2 = 2                        2       ...       31        0.9
+tabular context.
+                                                        SUM 0.8 .9×37 + .9×31 + .2×15 = 64.2                     3 ...             17        0
+   Finally, we present an end-to-end differentiable
+training recipe that allows TAPAS to train from         AVG 0.1          64.2 ÷ 2 = 32.1                         4       ...       15        0.2
+weak supervision. For examples that only involve
+selecting a subset of the table cells, we directly      spred= .1×2 + .8×64.2 + .1×32.1 = 54.8                   ... ...           ...       0
+train the model to select the gold subset. For exam-
+ples that involve aggregation, the relevant cells and   Aggregation                                                 Cell selection
+the aggregation operation are not known from the         prediction
+denotation. In this case, we calculate an expected
+soft scalar outcome over all aggregation operators      [CLS]        T1  ...                    TN       [SEP]      T'1       ...       T'M
+given the current model, and train the model with a     E[CLS]                                           E[SEP]
+regression loss against the gold denotation.                                                        ...
+
+   In comparison to prior attempts to reason over ta-                E1  ...                    EN                  E'1       ...       E'M
+bles without generating logical forms (Neelakantan
+et al., 2015; Yin et al., 2016; Mu¨ller et al., 2019),  [CLS]        Tok 1 ... Tok N                     [SEP]   Tok 1 ... Tok M
+TAPAS achieves better accuracy, and holds several
+advantages: its architecture is simpler as it includes                   Question                                   Flattened Table
+a single encoder with no auto-regressive decoding,
+it enjoys pre-training, tackles more question types     Figure 1: TAPAS model (bottom) with example model
+such as those that involve aggregation, and directly    outputs for the question: "Total number of days for the
+handles a conversational setting.                       top two". Cell prediction (top right) is given for the
+                                                        selected column's table cells in bold (zero for others)
+   We find that on three different semantic pars-       along with aggregation prediction (top left).
+ing datasets, TAPAS performs better or on par in
+comparison to other semantic parsing and ques-          Additional embeddings We add a separator to-
+tion answering models. On the conversational            ken between the question and the table, but unlike
+SQA (Iyyer et al., 2017), TAPAS improves state-         Hwang et al. (2019) not between cells or rows. In-
+of-the-art accuracy from 55.1 to 67.2, and achieves     stead, the token embeddings are combined with
+on par performance on WIKISQL (Zhong et al.,            table-aware positional embeddings before feeding
+2017) and WIKITQ (Pasupat and Liang, 2015).             them to the model. We use different kinds of posi-
+Transfer learning, which is simple in TAPAS, from       tional embeddings:
+WIKISQL to WIKITQ achieves 48.7 accuracy, 4.2
+points higher than state-of-the-art. Our code and       · Position ID is the index of the token in the flat-
+pre-trained model are publicly available at https:        tened sequence (same as in BERT).
+//github.com/google-research/tapas.
+                                                        · Segment ID takes two possible values: 0 for the
+2 TAPAS Model                                             question, and 1 for the table header and cells.
+
+Our model's architecture (Figure 1) is based on         · Column / Row ID is the index of the colum-
+BERT's encoder with additional positional embed-          n/row that this token appears in, or 0 if the token
+dings used to encode tabular structure (visualized        is a part of the question.
+in Figure 2). We flatten the table into a sequence
+of words, split words into word pieces (tokens) and     · Rank ID if column values can be parsed as floats
+concatenate the question tokens before the table to-      or dates, we sort them accordingly and assign an
+kens. We additionally add two classification layers       embedding based on their numeric rank (0 for
+for selecting table cells and aggregation operators       not comparable, 1 for the smallest item, i + 1
+that operate on the cells. We now describe these          for an item with rank i). This can assist the
+modifications and how inference is performed.             model when processing questions that involve
+                                                          superlatives, as word pieces may not represent
+                                                          numbers informatively (Wallace et al., 2019).
+
+                                                        · Previous Answer given a conversational setup
+                                                          where the current question might refer to the
+                                                          previous question or its answers (e.g., question
+                                                          5 in Figure 3), we add a special embedding that
+                                                          marks whether a cell token was the answer to the
+                                                          previous question (1 if the token's cell was an
+                                                          answer, or 0 otherwise).
+
+                                                        Cell selection This classification layer selects a
+                                                        subset of the table cells. Depending on the selected
+Table       Token       [CLS] query     ?   [SEP]            col   ##1     col   ##2      0      1      2      3
+ col1 col2  Embeddings                POS2   POS3          POS4   POS5   POS6    POS7  POS8   POS9   POS10  POS11
+                                      SEG0   SEG0           SEG1   SEG1   SEG1   SEG1   SEG1   SEG1   SEG1   SEG1
+0  1        Position    POS0  POS1   COL0   COL0            COL1   COL1  COL2   COL2   COL1   COL2   COL1   COL2
+            Embeddings               ROW0   ROW0           ROW0   ROW0   ROW0   ROW0   ROW1   ROW1   ROW2   ROW2
+2  3                    SEG0  SEG0   RANK0  RANK0          RANK0  RANK0  RANK0  RANK0  RANK1  RANK1  RANK2  RANK2
+            Segment
+            Embeddings  COL0  COL0
+
+            Column      ROW0 ROW0
+            Embeddings  RANK0 RANK0
+
+            Row
+            Embeddings
+
+            Rank
+            Embeddings
+
+Figure 2: Encoding of the question "query?" and a simple table using the special embeddings of TAPAS. The
+previous answer embeddings are omitted for brevity.
+
+aggregation operator, these cells can be the final         probability is larger than 0.5. These predictions
+answer or the input used to compute the final an-          are then executed against the table to retrieve the
+swer. Cells are modelled as independent Bernoulli          answer, by applying the predicted aggregation over
+variables. First, we compute the logit for a token         the selected cells.
+using a linear layer on top of its last hidden vec-
+tor. Cell logits are then computed as the average          3 Pre-training
+over logits of tokens in that cell. The output of
+the layer is the probability ps(c) to select cell c. We    Following the recent success of pre-training models
+additionally found it useful to add an inductive bias      on textual data for natural language understanding
+to select cells within a single column. We achieve         tasks, we wish to extend this procedure to struc-
+this by introducing a categorical variable to select       tured data, as an initialization for our table parsing
+the correct column. The model computes the logit           task. To this end, we pre-train TAPAS on a large
+for a given column by applying a new linear layer          number of tables from Wikipedia. This allows the
+to the average embedding for cells appearing in            model to learn many interesting correlations be-
+that column. We add an additional column logit             tween text and the table, and between the cells of a
+that corresponds to selecting no column or cells.          columns and their header.
+We treat this as an extra column with no cells. The
+output of the layer is the probability pc(cool) to select     We create pre-training inputs by extracting text-
+column co computed using softmax over the col-             table pairs from Wikipedia. We extract 6.2M tables:
+umn logits. We set cell probabilities ps(c) outside        3.3M of class Infobox1 and 2.9M of class WikiTable.
+the selected column to 0.                                  We consider tables with at most 500 cells. All
+                                                           of the end task datasets we experiment with only
+Aggregation operator prediction Semantic                   contain horizontal tables with a header row with
+parsing tasks require discrete reasoning over the          column names. Therefore, we only extract Wiki
+table, such as summing numbers or counting cells.          tables of this form using the <th> tag to identify
+To handle these cases without producing logical            headers. We furthermore, transpose Infoboxes into
+forms, TAPAS outputs a subset of the table cells           a table with a single header and a single data row.
+together with an optional aggregation operator.            The tables, created from Infoboxes, are arguably
+The aggregation operator describes an operation            not very typical, but we found them to improve
+to be applied to the selected cells, such as SUM,          performance on the end tasks.
+COUNT, AVERAGE or NONE. The operator is
+selected by a linear layer followed by a softmax              As a proxy for questions that appear in the end
+on top of the final hidden vector of the first token       tasks, we extract the table caption, article title, ar-
+(the special [CLS] token). We denote this layer            ticle description, segment title and text of the seg-
+as pa(op), where op is some aggregation operator.          ment the table occurs in as relevant text snippets.
+                                                           In this way we extract 21.3M snippets.
+Inference We predict the most likely aggregation
+operator together with a subset of the cells (using           We convert the extracted text-table pairs to pre-
+the cell selection layer). To predict a discrete cell      training examples as follows: Following Devlin
+selection we select all table cells for which their        et al. (2019), we use a masked language model
+                                                           pre-training objective. We also experimented with
+                                                           adding a second objective of predicting whether
+
+                                                               1en.wikipedia.org/wiki/Help:Infobox
+the table belongs to the text or is a random table      where s is populated but C is empty, we train the
+but did not find this to improve the performance on     model to predict an aggregation over the table cells
+the end tasks. This is aligned with Liu et al. (2019)   that amounts to s. We now describe each of these
+that similarly did not benefit from a next sentence     cases in detail.
+prediction task.
+                                                        Cell selection In this case y is mapped to a subset
+   For pre-training to be efficient, we restrict our    of the table cell coordinates C (e.g., question 1 in
+word piece sequence length to a certain budget          Figure 3). For this type of examples, we use a
+(e.g., we use 128 in our final experiments). That       hierarchical model that first selects a single column
+is, the combined length of tokenized text and table     and then cells from within that column only.
+cells has to fit into this budget. To achieve this, we
+randomly select a snippet of 8 to 16 word pieces           We directly train the model to select the column
+from the associated text. To fit the table, we start    col which has the highest number of cells in C. For
+by only adding the first word of each column name       our datasets cells C are contained in a single col-
+and cell. We then keep adding words turn-wise           umn and so this restriction on the model provides a
+until we reach the word piece budget. For every         useful inductive bias. If C is empty we select the
+table we generate 10 different snippets in this way.    additional empty column corresponding to empty
+                                                        cell selection. The model is then trained to select
+   We follow the masking procedure introduced           cells C  col and not select (T \ C)  col. The loss
+by BERT. We use whole word masking2 for the             is composed of three components: (1) the average
+text, and we find it beneficial to apply whole cell     binary cross-entropy loss over column selections:
+masking (masking all the word pieces of the cell if
+any of its pieces is masked) to the table as well.                         1                CE(pc(cool ), 1co=col)
+                                                        Jcolumns = |Columns|
+   We note that we additionally experimented with                              coColumns
+data augmentation, which shares a similar goal
+to pre-training. We generated synthetic pairs of        where the set of columns Columns includes the ad-
+questions and denotations over real tables via a        ditional empty column, CE(·) is the cross entropy
+grammar, and augmented these to the end tasks
+training data. As this did not improve end task         loss, 1 is the indicator function. (2) the average
+performance significantly, we omit these results.
+                                                        binary cross-entropy loss over column cell selec-
+4 Fine-tuning
+                                                        tions:
+Overview We formally define table parsing in a
+weakly supervised setup as follows. Given a train-                      1                   CE(ps(c), 1cC ),
+ing set of N examples {(xi, Ti, yi)}iN=1, where xi      Jcells = |Cells(col)|
+is an utterance, Ti is a table and yi is a correspond-                         cCells(col)
+ing set of denotations, our goal is to learn a model
+that maps a new utterance x to a program z, such        where Cells(col) is the set of cells in the chosen col-
+that when z is executed against the corresponding       umn. (3) As for cell selection examples no aggrega-
+table T , it yields the correct denotation y. The pro-  tion occurs, we define the aggregation supervision
+gram z comprises a subset of the table cells and an     to be NONE (assigned to op0), and the aggregation
+optional aggregation operator. The table T maps a       loss is:
+table cell to its value.
+                                                                        Jaggr = - log pa(op0).
+   As a pre-processing step described in Section 5.1,
+we translate the set of denotations y for each ex-      The total loss is then JCS = Jcolumns + Jcells +
+ample to a tuple (C, s) of cell coordinates C and       Jaggr, where  is a scaling hyperparameter.
+a scalar s, which is only populated when y is a
+single scalar. We then guide training according to      Scalar answer In this case y is a single scalar s
+the content of (C, s). For cell selection examples,     which does not appear in the table (i.e. C = , e.g.,
+for which s is not populated, we train the model to     question 2 in Figure 3). This usually corresponds
+select the cells in C. For scalar answer examples,      to examples that involve an aggregation over one
+                                                        or more table cells. In this work we handle aggre-
+    2https://github.com/google-research/                gation operators that correspond to SQL, namely
+bert/blob/master/README.md                              COUNT, AVERAGE and SUM, however our model
+                                                        is not restricted to these.
+
+                                                           For these examples, the table cells that should be
+                                                        selected and the aggregation operator type are not
+                                                        known, as these cannot be directly inferred from
+Table          No. of Combined    Example questions                                        Answer                 Example Type
+ Rank Name     reigns days          # Question
+
+                                     1 Which wrestler had the most number of reigns?       Ric Flair              Cell selection
+
+1 Lou Thesz       3  3,749           2 Average time as champion for top 2 wrestlers?       AVG(3749,3103)=3426 Scalar answer
+                     3,103
+2 Ric Flair       8  1,799           3 How many world champions are there with only        COUNT(Dory Funk Jr., Ambiguous answer
+                     1,563                one reign?                                       Gene Kiniski)=2
+3 Harley Race     7  1,559
+                     1,131           4 What is the number of reigns for Harley Race?
+                                                                                           7                      Ambiguous answer
+                                          Which of the following wrestlers were ranked in
+4 Dory Funk Jr. 1                    5 the bottom 3?
+
+                                          Out of these, who had more than one reign?       {Dory Funk Jr., Dan    Cell selection
+
+5 Dan Severn      2                                                                        Severn, Gene Kiniski}
+
+6 Gene Kiniski 1                                                                           Dan Severn             Cell selection
+
+Figure 3: A table (left) with corresponding example questions (right). The last example is conversational.
+
+the scalar answer s. To train the model given this          op                                compute(op, ps, T )
+form of supervision one could search offline (Dua
+et al., 2019; Andor et al., 2019) or online (Berant         COUNT                                     cT p(sc)
+et al., 2013; Liang et al., 2018) for programs (ta-         SUM                                    cT ps(c) · T [c]
+ble cells and aggregation) that execute to s. In our        AVERAGE                            compute(SUM,ps,T )
+table parsing setting, the number of spurious pro-                                            compute(COUNT,ps,T )
+grams that execute to the gold scalar answer can
+grow quickly with the number of table cells (e.g.,          Table 1: Aggregation operators soft implementation.
+when s = 5, each COUNT over any five cells is
+potentially correct). As with this approach learning        AVERAGE approximation is discussed in Appendix D.
+can easily fail, we avoid it.                               Note that probabilities ps(c) outside of the column se-
+                                                            lected by the model are set to 0.
+   Instead, we make use of a training recipe where
+no search for correct programs is needed. Our ap-           where a = |spred - s|, and  is a hyperparameter.
+proach results in an end-to-end differentiable train-       Like Neelakantan et al. (2015), we find this loss
+ing, similar in spirit to Neelakantan et al. (2015).        is more stable than the squared loss. In addition,
+We implement a fully differentiable layer that la-          since a scalar answer implies some aggregation
+tently learns the weights for the aggregation pre-          operation, we also define an aggregation loss that
+diction layer pa(·), without explicit supervision for       penalizes the model for assigning probability mass
+the aggregation type.                                       to the NONE class:
+
+   Specifically, we recognize that the result of exe-                    Jaggr = - log( pa(opi))
+cuting each of the supported aggregation operators
+is a scalar. We then implement a soft differentiable                                                    i=1
+estimation for each operator (Table 1), given the
+token selection probabilities and the table values:         The total loss is then JSA = Jaggr +Jscalar, where
+compute(op, ps, T ). Given the results for all ag-           is a scaling hyperparameter. As for some ex-
+gregation operators we then calculate the expected          amples Jscalar can be very large, which leads to
+result according to the current model:                      unstable model updates, we introduce a cutoff hy-
+                                                            perparameter. Then, for a training example where
+spred = p^a(opi) · compute(opi, ps, T ),                    Jscalar > cutoff, we set J = 0 to ignore the exam-
+                                                            ple entirely, as we noticed this behaviour correlates
+             i=1                                            with outliers. In addition, as computation done dur-
+                                                            ing training is continuous, while that being done
+where p^a(opi) =     pa(opi)      is  a  probability  dis-  during inference is discrete, we further add a tem-
+                     i=1 pa(opi)                            perature that scales token logits such that ps would
+                                                            output values closer to binary ones.
+tribution normalized over aggregation operators
+                                                            Ambiguous answer A scalar answer s that also
+excluding NONE.                                             appears in the table (thus C = ) is ambiguous,
+                                                            as in some cases the question implies aggregation
+We then calculate the scalar answer loss with               (question 3 in Figure 3), while in other cases a table
+
+Huber loss (Huber, 1964) given by:
+
+                  0.5 · a2               a
+Jscalar =  · a - 0.5 · 2 otherwise
+                WIKISQL WIKITQ SQA                      (gold cells for each question). For WIKISQL and
+                                                        WIKITQ, we only use the denotations. Therefore,
+Logical Form                                            we derive cell coordinates by matching the deno-
+Conversational                                          tations against the table contents. We fill scalar
+Aggregation                                             answer information if the denotation contains a
+Examples        80654  22033  17553                     single element that can be interpreted as a float,
+Tables          24241  2108   982                       otherwise we set its value to NaN. We drop exam-
+                                                        ples if there is no scalar answer and the denotation
+Table 2: Dataset statistics.                            can not be found in the table, or if some denotation
+                                                        matches multiple cells.
+cell should be predicted (question 4 in Figure 3).
+Thus, in this case we dynamically let the model         5.2 Experimental Setup
+choose the supervision (cell selection or scalar
+answer) according to its current policy. Concretely,    We apply the standard BERT tokenizer on ques-
+we set the supervision to be of cell selection if       tions, table cells and headers, using the same vo-
+pa(op0)  S, where 0 < S < 1 is a threshold              cabulary of 32k word pieces. Numbers and dates
+hyperparameter, and the scalar answer supervision       are parsed in a similar way as in the Neural Pro-
+otherwise. This follows hard EM (Min et al., 2019),     grammer (Neelakantan et al., 2017).
+as for spurious programs we pick the most probable
+one according to the current model.                        The official evaluation script of WIKITQ and
+                                                        SQA is used to report the denotation accuracy for
+5 Experiments                                           these datasets. For WIKISQL, we generate the
+                                                        reference answer, aggregation operator and cell co-
+5.1 Datasets                                            ordinates from the reference SQL provided using
+                                                        our own SQL implementation running on the JSON
+We experiment with the following semantic parsing       tables. However, we find that the answer produced
+datasets that reason over single tables (see Table 2).  by the official WIKISQL evaluation script is incor-
+                                                        rect for approx. 2% of the examples. Throughout
+WIKITQ (Pasupat and Liang, 2015) This                   this paper we report accuracies against our refer-
+dataset consists of complex questions on Wikipedia      ence answers, but we explain the differences and
+tables. Crowd workers were asked, given a table,        also provide accuracies compared to the official
+to compose a series of complex questions that in-       reference answers in Appendix A.
+clude comparisons, superlatives, aggregation or
+arithmetic operation. The questions were then veri-        We start pre-training from BERT-Large (see Ap-
+fied by other crowd workers.                            pendix B for hyper-parameters). We find it ben-
+                                                        eficial to start the pre-training from a pre-trained
+SQA (Iyyer et al., 2017) This dataset was con-          standard text BERT model (while randomly initial-
+structed by asking crowd workers to decompose           izing our additional embeddings), as this enhances
+a subset of highly compositional questions from         convergence on the held-out set.
+WIKITQ, where each resulting decomposed ques-
+tion can be answered by one or more table cells.           We run both pre-training and fine-tuning on a
+The final set consists of 6, 066 question sequences     setup of 32 Cloud TPU v3 cores with maximum se-
+(2.9 question per sequence on average).                 quence length 512. In this setup pre-training takes
+                                                        around 3 days and fine-tuning around 10 hours for
+WIKISQL (Zhong et al., 2017) This dataset fo-           WIKISQL and WIKITQ and 20 hours for SQA
+cuses on translating text to SQL. It was constructed    (with the batch sizes from table 12). The resource
+by asking crowd workers to paraphrase a template-       requirements of our model are essentially the same
+based question in natural language. Two other           as BERT-large3.
+crowd workers were asked to verify the quality
+of the proposed paraphrases.                               For fine-tuning, we choose hyper-parameters
+                                                        using a black box Bayesian optimizer similar to
+   As our model predicts cell selection or scalar an-   Google Vizier (Golovin et al., 2017) for WIKISQL
+swers, we convert the denotations for each dataset      and WIKITQ. For SQA we use grid-search. We
+to question, cell coordinates, scalar answer            discuss the details in Appendix B.
+triples. SQA already provides this information
+                                                            3https://github.com/google-research/
+                                                        bert/blob/master/README.md#
+                                                        out-of-memory-issues
+Model                       Dev Test                    Model                        ALL SEQ Q1 Q2 Q3
+
+Liang et al. (2018)         71.8 72.4                   Pasupat and Liang (2015) 33.2 7.7 51.4 22.2 22.3
+Agarwal et al. (2019)       74.9 74.8
+Wang et al. (2019)          79.4 79.3                   Neelakantan et al. (2017) 40.2 11.8 60.0 35.9 25.5
+Min et al. (2019)           84.4 83.9
+                                                        Iyyer et al. (2017)          44.7 12.8 70.4 41.1 23.6
+
+                                                        Sun et al. (2018)            45.6 13.2 70.3 42.6 24.8
+
+                                                        Mu¨ller et al. (2019)        55.1 28.1 67.2 52.7 46.8
+
+                                                        TAPAS                        67.2 40.4 78.2 66.0 59.7
+
+TAPAS                       85.1 83.6
+
+TAPAS (fully-supervised) 88.0 86.4                      Table 5: SQA test results. ALL is the average question
+                                                        accuracy, SEQ the sequence accuracy, and QX, the ac-
+Table 3: WIKISQL denotation accuracy4.                  curacy of the X'th question in a sequence.
+
+                                                                               SQA (SEQ) WIKISQL WIKITQ
+
+Model                       Test                        all                    39.0  84.7  29.0
+
+Pasupat and Liang (2015)    37.1                        -pos                   36.7 -2.3 82.9 -1.8 25.3 -3.7
+
+                                                        -ranks                 34.4 -4.6 84.1 -0.6 30.7 +1.8
+
+Neelakantan et al. (2017)   34.2                        -{cols,rows}           19.6 -19.4 74.1 -10.6 17.3 -11.6
+
+Haug et al. (2018)          34.8                        -table pre-training 26.5 -12.5 80.8 -3.9 17.9 -11.1
+
+Zhang et al. (2017)         43.7                        -aggregation           -     82.6 -2.1 23.1 -5.9
+
+Liang et al. (2018)         43.1                        Table 6: Dev accuracy with different embeddings re-
+                                                        moved from the full model: positional (pos), numeric
+Dasigi et al. (2019)        43.9                        ranks (ranks), column (cols) and row (rows). The
+                                                        model without table pre-training was initialized from
+Agarwal et al. (2019)       44.1                        the original BERT model pre-trained on text only. The
+                                                        model without aggregation is only trained with the cell
+Wang et al. (2019)          44.5                        selection loss.
+
+TAPAS                       42.6
+
+TAPAS (pre-trained on WIKISQL) 48.7
+
+TAPAS (pre-trained on SQA)  48.8
+
+         Table 4: WIKITQ denotation accuracy.              For SQA, Table 5 shows that TAPAS leads to
+                                                        substantial improvements on all metrics: Improv-
+5.3 Results                                             ing all metrics by at least 11 points, sequence accu-
+                                                        racy from 28.1 to 40.4 and average question accu-
+All results report the denotation accuracy for mod-     racy from 55.1 to 67.2.
+els trained from weak supervision. We follow
+Niven and Kao (2019) and report the median for          Model ablations Table 6 shows an ablation study
+5 independent runs, as BERT-based models can            on our different embeddings. To this end we pre-
+degenerate. We present our results for WIKISQL          train and fine-tune models with different features.
+and WIKITQ in Tables 3 and 4 respectively. Table        As pre-training is expensive we limit it to 200, 000
+3 shows that TAPAS, trained in the weakly super-        steps. For all datasets we see that pre-training on
+vised setting, achieves close to state-of-the-art per-  tables and column and row embeddings are the
+formance for WIKISQL (83.6 vs 83.9 (Min et al.,         most important. Positional and rank embeddings
+2019)). If given the gold aggregation operators and     are also improving the quality but to a lesser extent.
+selected cell as supervision (extracted from the ref-
+erence SQL), which accounts as full supervision to         We additionally find that when removing the
+TAPAS, the model achieves 86.4. Unlike the full         scalar answer and aggregation losses (i.e., set-
+SQL queries, this supervision can be annotated by       ting JSA=0) from TAPAS, accuracy drops for both
+non-experts.                                            datasets. For WIKITQ, we observe a substantial
+                                                        drop in performance from 29.0 to 23.1 when re-
+   For WIKITQ the model trained only from the           moving aggregation. For WIKISQL performance
+original training data reaches 42.6 which surpass       drops from 84.7 to 82.6. The relatively small de-
+similar approaches (Neelakantan et al., 2015).          crease for WIKISQL can be explained by the fact
+When we pre-train the model on WIKISQL or               that most examples do not need aggregation to be
+SQA (which is straight-forward in our setup, as         answered. In principle, 17% of the examples of
+we do not rely on a logical formalism), TAPAS
+achieves 48.7 and 48.8, respectively.                       4As explained in Section 5.2, we report TAPAS numbers
+                                                        comparing against our own reference answers. Appendix A
+                                                        contains numbers WRT the official WIKISQL eval script.
+the dev set have an aggregation (SUM, AVERAGE                 all text header cell
+or COUNT), however, for all types we find that for
+more than 98% of the examples the aggregation is         all  71.4 68.8    96.6 63.4
+only applied to one or no cells. In the case of SUM                        96.9 66.6
+and AVERAGE, this means that most examples can           word 74.1 69.7    83.6 53.2
+be answered by selecting one or no cells from the
+table. For COUNT the model without aggregation           number 53.9 51.7
+operators achieves 28.2 accuracy (by selecting 0
+or 1 from the table) vs. 66.5 for the model with         Table 7: Mask LM accuracy on held-out data, when
+aggregation. Note that 0 and 1 are often found in        the target word piece is located in the text, table header,
+a special index column. These properties of WIK-         cell or anywhere (all) and the target is anything, a word
+ISQL make it challenging for the model to decide         or number.
+whether to apply aggregation or not. For WIKITQ
+on the other hand, we observe a substantial drop         data do not occur in the training data. Table 7
+in performance from 29.0 to 23.1 when removing           shows the accuracy of masked word pieces of dif-
+aggregation.                                             ferent types and in different locations. We find
+                                                         that average accuracy across position is relatively
+Qualitative Analysis on WIKITQ We manu-                  high (71.4). Predicting tokens in the header of
+ally analyze 200 dev set predictions made by             the table is easiest (96.6), probably because many
+TAPAS on WIKITQ. For correct predictions via             Wikipedia articles use instances of the same kind of
+an aggregation, we inspect the selected cells to see     table. Predicting word pieces in cells is a bit harder
+if they match the ground truth. We find that 96% of      (63.4) than predicting pieces in the text (68.8). The
+the correct aggregation predictions where also cor-      biggest differences can be observed when compar-
+rect in terms of the cells selected. We further find     ing predicting words (74.1) and numbers (53.9).
+that 14% of the correct aggregation predictions had      This is expected since numbers are very specific
+only one cell, and could potentially be achieved by      and often hard to generalize. The soft-accuracy
+cell selection, with no aggregation.                     metric and example (Appendix C) demonstrate,
+                                                         however, that the model is relatively good at pre-
+   We also perform an error analysis and identify        dicting numbers that are at least close to the target.
+the following exclusive salient phenomena: (i) 12%
+are ambiguous ("Name at least two labels that re-        Limitations TAPAS handles single tables as con-
+leased the group's albums."), have wrong labels or       text, which are able to fit in memory. Thus, our
+missing information ; (ii) 10% of the cases require      model would fail to capture very large tables, or
+complex temporal comparisons which could also            databases that contain multiple tables. In this case,
+not be parsed with a rich formalism such as SQL          the table(s) could be compressed or filtered, such
+("what country had the most cities founded in the        that only relevant content would be encoded, which
+1830's?") ; (iii) in 16% of the cases the gold de-       we leave for future work.
+notation has a textual value that does not appear in
+the table, thus it could not be predicted without per-      In addition, although TAPAS can parse composi-
+forming string operations over cell values ; (iv) on     tional structures (e.g., question 2 in Figure 3), its
+10%, the table is too big to fit in 512 tokens ; (v) on  expressivity is limited to a form of an aggregation
+13% of the cases TAPAS selected no cells, which          over a subset of table cells. Thus, structures with
+suggests introducing penalties for this behaviour        multiple aggregations such as "number of actors
+; (vi) on 2% of the cases, the answer is the differ-     with an average rating higher than 4" could not be
+ence between scalars, so it is outside of the model      handled correctly. Despite this limitation, TAPAS
+capabilities ("how long did anne churchill/spencer       succeeds in parsing three different datasets, and
+live?") ; (vii) the other 37% of the cases could not     we did not encounter this kind of errors in Section
+be classified to a particular phenomenon.                5.3. This suggests that the majority of examples
+                                                         in semantic parsing datasets are limited in their
+Pre-training Analysis In order to understand             compositionality.
+what TAPAS learns during pre-training we analyze
+its performance on 10,000 held-out examples. We          6 Related Work
+split the data such that the tables in the held-out
+                                                         Semantic parsing models are mostly trained to pro-
+                                                         duce gold logical forms using an encoder-decoder
+                                                         approach (Jia and Liang, 2016; Dong and Lapata,
+2016). To reduce the burden in collecting full logi-   can fine-tune on semantic parsing datasets, only
+cal forms, models are typically trained from weak      using weak supervision, with an end-to-end differ-
+supervision in the form of denotations. These are      entiable recipe. Results show that TAPAS achieves
+used to guide the search for correct logical forms     better or competitive results in comparison to state-
+(Clarke et al., 2010; Liang et al., 2011).             of-the-art semantic parsers.
+
+   Other works suggested end-to-end differentiable        In future work we aim to extend the model to
+models that train from weak supervision, but do not    represent a database with multiple tables as context,
+explicitly generate logical forms. Neelakantan et al.  and to effectively handle large tables.
+(2015) proposed a complex model that sequentially
+predicts symbolic operations over table segments       8 Acknowledgments
+that are all explicitly predefined by the authors,
+while Yin et al. (2016) proposed a similar model       We would like to thank Yasemin Altun, Srini
+where the operations themselves are learned during     Narayanan, Slav Petrov, William Cohen, Massimo
+training. Mu¨ller et al. (2019) proposed a model that  Nicosia, Syrine Krichene, Jordan Boyd-Graber and
+selects table cells, where the table and question are  the anonymous reviewers for their constructive
+represented as a Graph Neural Network, however         feedback, useful comments and suggestions. This
+their model can not predict aggregations over ta-      work was completed in partial fulfillment for the
+ble cells. Cho et al. (2018) proposed a supervised     PhD degree of the first author, which was also sup-
+model that predicts the relevant rows, column and      ported by a Google PhD fellowship.
+aggregation operation sequentially. In our work,
+we propose a model that follow this line of work,      References
+with a simpler architecture than past models (as
+the model is a single encoder that performs com-       R. Agarwal, C. Liang, D. Schuurmans, and M. Norouzi.
+putation for many operations implicitly) and more         2019. Learning to generalize from sparse
+coverage (as we support aggregation operators over        and underspecified rewards. arXiv preprint
+selected cells).                                          arXiv:1902.07198.
+
+   Finally, pre-training methods have been de-         D. Andor, C. Alberti, D. Weiss, A. Severyn, A. Presta,
+signed with different training objectives, including      K. Ganchev, S. Petrov, and M. Collins. 2016. Glob-
+language modeling (Dai and Le, 2015; Peters et al.,       ally normalized transition-based neural networks.
+2018; Radford et al., 2018) and masked language           arXiv preprint arXiv:1603.06042.
+modeling (Devlin et al., 2019; Lample and Con-
+neau, 2019). These methods dramatically boost          Daniel Andor, Luheng He, Kenton Lee, and Emily
+the performance of natural language understanding         Pitler. 2019. Giving bert a calculator: Finding op-
+models (Peters et al., 2018, inter alia). Recently,       erations and arguments with reading comprehension.
+several works extended BERT for visual question           arXiv preprint arXiv:1909.00109.
+answering, by pre-training over text-image pairs
+while masking different regions in the image (Tan      Y. Artzi and L. Zettlemoyer. 2013. Weakly supervised
+and Bansal, 2019; Lu et al., 2019). As for tables,        learning of semantic parsers for mapping instruc-
+Chen et al. (2019) experimented with rendering a          tions to actions. Transactions of the Association for
+table into natural language so that it can be handled     Computational Linguistics (TACL), 1:49­62.
+with a pre-trained BERT model. In our work we
+extend masked language modeling for table repre-       J. Berant, A. Chou, R. Frostig, and P. Liang. 2013. Se-
+sentations, by masking table cells or text segments.      mantic parsing on Freebase from question-answer
+                                                          pairs. In Empirical Methods in Natural Language
+7 Conclusion                                              Processing (EMNLP).
+
+In this paper we presented TAPAS, a model for          Wenhu Chen, Hongmin Wang, Jianshu Chen, Yunkai
+question answering over tables that avoids gener-         Zhang, Hong Wang, Shiyang Li, Xiyou Zhou, and
+ating logical forms. We showed that TAPAS effec-          William Yang Wang. 2019. Tabfact: A large-scale
+tively pre-trains over large scale data of text-table     dataset for table-based fact verification. ArXiv,
+pairs and successfully restores masked words and          abs/1909.02164.
+table cells. We additionally showed that the model
+                                                       Minseok Cho, Reinald Kim Amplayo, Seung won
+                                                          Hwang, and Jonghyuck Park. 2018. Adversarial
+                                                          tableqa: Attention supervision for question answer-
+                                                          ing on tables. In ACML.
+
+                                                       J. Clarke, D. Goldwasser, M. Chang, and D. Roth.
+                                                          2010. Driving semantic parsing from the world's re-
+                                                          sponse. In Computational Natural Language Learn-
+                                                          ing (CoNLL), pages 18­27.
+A. M. Dai and Q. V. Le. 2015. Semi-supervised se-        M. Iyyer, W. Yih, and M. Chang. 2017. Search-based
+   quence learning. In Advances in Neural Information       neural structured learning for sequential question an-
+   Processing Systems (NeurIPS).                            swering. In Association for Computational Linguis-
+                                                            tics (ACL).
+Pradeep Dasigi, Matt Gardner, Shikhar Murty, Luke
+   Zettlemoyer, and Eduard Hovy. 2019. Iterative         R. Jia and P. Liang. 2016. Data recombination for neu-
+   search for weakly supervised semantic parsing. In        ral semantic parsing. In Association for Computa-
+   Proceedings of the 2019 Conference of the North          tional Linguistics (ACL).
+   American Chapter of the Association for Computa-
+   tional Linguistics: Human Language Technologies,      J. Lafferty, A. McCallum, and F. Pereira. 2001. Con-
+   Volume 1 (Long and Short Papers), pages 2669­            ditional random fields: Probabilistic models for seg-
+   2680.                                                    menting and labeling data. In International Confer-
+                                                            ence on Machine Learning (ICML), pages 282­289.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+   Kristina Toutanova. 2019. BERT: Pre-training of       Guillaume Lample and Alexis Conneau. 2019. Cross-
+   deep bidirectional transformers for language under-      lingual language model pretraining. arXiv preprint
+   standing. In Proceedings of the 2019 Conference          arXiv:1901.07291.
+   of the North American Chapter of the Association
+   for Computational Linguistics: Human Language         Carolin Lawrence and Stefan Riezler. 2018. Improving
+   Technologies, Volume 1 (Long and Short Papers),          a neural semantic parser by counterfactual learning
+   pages 4171­4186, Minneapolis, Minnesota. Associ-         from human bandit feedback. In Proceedings of the
+   ation for Computational Linguistics.                     56th Annual Meeting of the Association for Compu-
+                                                            tational Linguistics (Volume 1: Long Papers), pages
+L. Dong and M. Lapata. 2016. Language to logical            1820­1830, Melbourne, Australia. Association for
+   form with neural attention. In Association for Com-      Computational Linguistics.
+   putational Linguistics (ACL).
+                                                         C. Liang, M. Norouzi, J. Berant, Q. Le, and N. Lao.
+D. Dua, Y. Wang, P. Dasigi, G. Stanovsky, S. Singh,         2018. Memory augmented policy optimization
+   and M. Gardner. 2019. DROP: A reading com-               for program synthesis with generalization. In Ad-
+   prehension benchmark requiring discrete reasoning        vances in Neural Information Processing Systems
+   over paragraphs. In North American Association for       (NeurIPS).
+   Computational Linguistics (NAACL).
+                                                         P. Liang, M. I. Jordan, and D. Klein. 2011. Learn-
+Daniel Golovin, Benjamin Solnik, Subhodeep Moitra,          ing dependency-based compositional semantics. In
+   Greg Kochanski, John Elliot Karro, and D. Sculley,       Association for Computational Linguistics (ACL),
+   editors. 2017. Google Vizier: A Service for Black-       pages 590­599.
+   Box Optimization.
+                                                         Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Man-
+K. Guu, P. Pasupat, E. Z. Liu, and P. Liang. 2017.          dar Joshi, Danqi Chen, Omer Levy, Mike Lewis,
+   From language to programs: Bridging reinforce-           Luke Zettlemoyer, and Veselin Stoyanov. 2019.
+   ment learning and maximum marginal likelihood. In        Roberta: A robustly optimized BERT pretraining ap-
+   Association for Computational Linguistics (ACL).         proach. CoRR, abs/1907.11692.
+
+T. Haug, O. Ganea, and P. Grnarova. 2018. Neural         Jiasen Lu, Dhruv Batra, Devi Parikh, and Stefan
+   multi-step reasoning for question answering on semi-     Lee. 2019. Vilbert: Pretraining task-agnostic visi-
+   structured tables. In European Conference on Infor-      olinguistic representations for vision-and-language
+   mation Retrieval.                                        tasks. arXiv preprint arXiv:1908.02265.
+
+J. Herzig and J. Berant. 2017. Neural semantic parsing   Sewon Min, Danqi Chen, Hannaneh Hajishirzi, and
+   over multiple knowledge-bases. In Association for        Luke Zettlemoyer. 2019. A discrete hard EM ap-
+   Computational Linguistics (ACL).                         proach for weakly supervised question answering.
+                                                            In Proceedings of the 2019 Conference on Empirical
+P. J. Huber. 1964. Robust estimation of a location          Methods in Natural Language Processing and the
+   parameter. The Annals of Mathematical Statistics,        9th International Joint Conference on Natural Lan-
+   35(1):73­101.                                            guage Processing (EMNLP-IJCNLP), pages 2851­
+                                                            2864, Hong Kong, China. Association for Computa-
+Wonseok Hwang, Jinyeung Yim, Seunghyun Park, and            tional Linguistics.
+   Minjoon Seo. 2019. A comprehensive exploration
+   on wikisql with table-aware word contextualization.   D. Muhlgay, J. Herzig, and J. Berant. 2019. Value-
+   arXiv preprint arXiv:1902.01069.                         based search in execution space for mapping instruc-
+                                                            tions to programs. In North American Association
+S. Iyer, I. Konstas, A. Cheung, J. Krishnamurthy, and       for Computational Linguistics (NAACL).
+   L. Zettlemoyer. 2017. Learning a neural semantic
+   parser from user feedback. In Association for Com-    Thomas Mu¨ller, Francesco Piccinno, Massimo Nicosia,
+   putational Linguistics (ACL).                            Peter Shaw, and Yasemin Altun. 2019. Answering
+                                                            conversational questions on structured data without
+                                                            logical forms. arXiv preprint arXiv:1908.11787.
+A. Neelakantan, Q. V. Le, M. Abadi, A. McCallum, and     Y. Wang, J. Berant, and P. Liang. 2015. Building a
+   D. Amodei. 2017. Learning a natural language inter-      semantic parser overnight. In Association for Com-
+   face with neural programmer. In International Con-       putational Linguistics (ACL).
+   ference on Learning Representations (ICLR).
+                                                         Pengcheng Yin, Zhengdong Lu, Hang Li, and Kao Ben.
+Arvind Neelakantan, Quoc V. Le, and Ilya Sutskever.         2016. Neural enquirer: Learning to query tables in
+   2015. Neural programmer: Inducing la-                    natural language. In Proceedings of the Workshop
+   tent programs with gradient descent. CoRR,               on Human-Computer Question Answering, pages
+   abs/1511.04834.                                          29­35, San Diego, California. Association for Com-
+                                                            putational Linguistics.
+Timothy Niven and Hung-Yu Kao. 2019. Probing neu-
+   ral network comprehension of natural language ar-     Y. Zhang, P. Pasupat, and P. Liang. 2017. Macro gram-
+   guments. In Proceedings of the 57th Annual Meet-         mars and holistic triggering for efficient semantic
+   ing of the Association for Computational Linguis-        parsing. In Empirical Methods in Natural Language
+   tics, pages 4658­4664, Florence, Italy. Association      Processing (EMNLP).
+   for Computational Linguistics.
+                                                         Victor Zhong, Caiming Xiong, and Richard Socher.
+Panupong Pasupat and Percy Liang. 2015. Compo-              2017. Seq2sql: Generating structured queries
+   sitional semantic parsing on semi-structured tables.     from natural language using reinforcement learning.
+   In Proceedings of the 53rd Annual Meeting of the         CoRR, abs/1709.00103.
+   Association for Computational Linguistics and the
+   7th International Joint Conference on Natural Lan-
+   guage Processing (Volume 1: Long Papers), pages
+   1470­1480, Beijing, China. Association for Compu-
+   tational Linguistics.
+
+M. E. Peters, M. Neumann, M. Iyyer, M. Gard-
+   ner, C. Clark, K. Lee, and L. Zettlemoyer. 2018.
+   Deep contextualized word representations. In North
+   American Association for Computational Linguistics
+   (NAACL).
+
+A. Radford, K. Narasimhan, T. Salimans, and
+   I. Sutskever. 2018. Improving language understand-
+   ing by generative pre-training. Technical report,
+   OpenAI.
+
+Y. Su and X. Yan. 2017. Cross-domain semantic pars-
+   ing via paraphrasing. In Empirical Methods in Nat-
+   ural Language Processing (EMNLP).
+
+Yibo Sun, Duyu Tang, Nan Duan, Jingjing Xu, Xi-
+   aocheng Feng, and Bing Qin. 2018. Knowledge-
+   aware conversational semantic parsing over web ta-
+   bles. arXiv preprint arXiv:1809.04271.
+
+Hao Tan and Mohit Bansal. 2019. Lxmert: Learning
+   cross-modality encoder representations from trans-
+   formers. In Proceedings of the 2019 Conference
+   on Empirical Methods in Natural Language Process-
+   ing.
+
+Eric Wallace, Yizhong Wang, Sujian Li, Sameer Singh,
+   and Matt Gardner. 2019. Do nlp models know num-
+   bers? probing numeracy in embeddings. arXiv
+   preprint arXiv:1909.07940.
+
+Bailin Wang, Ivan Titov, and Mirella Lapata. 2019.
+   Learning semantic parsers from denotations with la-
+   tent structured alignments and abstract programs. In
+   Proceedings of the 2019 Conference on Empirical
+   Methods in Natural Language Processing and the
+   9th International Joint Conference on Natural Lan-
+   guage Processing (EMNLP-IJCNLP), pages 3772­
+   3783, Hong Kong, China. Association for Computa-
+   tional Linguistics.
+A WIKISQL Execution Errors                               Parameter                     PRETRAIN SQA WIKISQL WIKITQ
+
+In some tables, WIKISQL contains "REAL" num-             Training Steps                1,000,000   200,000         50,000         50,000
+bers stored in "TEXT" format. This leads to in-          Learning rate                       5e-5  1.25e-5    6.17164e-5     1.93581e-5
+correct results for some of the comparison and           Warmup ratio                        0.01
+aggregation examples. These errors in the WIK-           Temperature                                     0.2    0.142400       0.128960
+ISQL execution accuracy penalize systems that            Answer loss cutoff                   512        1.0    0.107515     0.0352513
+do their own execution (rather then producing an         Huber loss delta                                       0.185567       0.664694
+SQL query). Table 8 shows two examples where             Cell selection preference                      128      1265.74       0.121194
+our result derivation and the one used by WIK-           Batch size                                             0.611754
+ISQL differ because the numbers in the "Crowd"           Gradient clipping                                 1                   0.207951
+(col5) column are not represented as numbers in          Select one column                                 0           512            512
+the respective SQL table. Table 9 and 10 contain         Reset cell selection weights                                   10             10
+accuracies compared against the official and our                                                                                         1
+answers.                                                                                                                  0              1
+                                                                                                                          0
+
+                                                         Table 12: Optimal hyper-parameters found for pretrain-
+                                                         ing (PRETRAIN), SQA, WIKISQL and WIKITQ.
+
+                                                         C Pre-training Example
+
+                                                         In order to better understand how well the model
+                                                         predicts numbers, we relax our accuracy measure
+                                                         to a soft form of accuracy:
+
+                                                                                                   if x = y
+                                                                        1                          if x or y is not a number
+                                                                                                   else
+
+                                                         acc(x, y) = 0
+
+Model                         WIKISQL TAPAS                         1.0    -             |x-y|
+                                                                                       max(x,y)
+
+TAPAS (no answer loss)                81.2 82.5             With this soft metric we get an overall accuracy
+TAPAS                                 83.9 85.1          of 74.5 (instead of 71.4) and an accuracy of 80.5
+TAPAS (supervised)                    86.6 88.0          (instead of 53.9) for numbers. Showing that the
+                                                         model is pretty good at guessing numbers that are
+Table 9: WIKISQL development denotation accuracy.        at least close to the target. The following example
+                                                         demonstrates this:
+
+                                                         Team       Pld W D L PF PA                                          PD Pts
+
+                                                         South Korea 2 1 1 0 33 22                                           11             5
+
+Model                         WIKISQL TAPAS              Spain      2 1 1 0 31 24                                            7              5
+
+TAPAS (no answer loss)                80.1 81.2          Zimbabwe 2 0 0 2 22 43,40 - 19,18 2
+TAPAS                                 82.4 83.6
+TAPAS (supervised)                    85.2 86.4          Table 13: Table example from the Wikipedia page de-
+                                                         scribing the 1997 Rugby World Cup Sevens. x marks
+Table 10: WIKISQL test denotation accuracy.              a correct prediction and x,y an incorrect prediction.
+
+B Hyperparameters                                           In the example, the model correctly restores the
+                                                         Draw (D) and Loss (L) numbers for Spain. It fails
+Parameter                     Values         Scale       to restore the Points For (PF) and Points Against
+                                                         (PA) for Zimbabwe, but gives close estimates. Note
+Learning rate                 (1e-5, 3e-3)   Log         that the model also does not produce completely
+Warmup ratio                  (0.0, 0.2)     Linear      consistent results for each row we should have
+Temperature                   (0.1, 1)       Linear      PA + PD = PF and the column sums of PF and
+Answer loss cutoff            (0.1, 10,000)  Log         PA should equal.
+Huber loss delta              (0.1, 10,000)  Log
+Cell selection preference     (0, 1)         Linear      D The average of stochastic sets
+Reset cell selection weights  [0, 1]         Discrete
+                                                         Our approach to estimate aggregates of cells in the
+Table 11: Hyper-parameters for WIKISQL and WIK-          table operates directly on latent conditionally inde-
+ITQ. Values are constrained to either a range (a, b) or  pendent Bernoulli variables Gc  Bern(pc) that in-
+a list [a, b, c, . . .].                                 dicate whether each cell is included in the aggrega-
+                                                         tion and a latent categorical variable that indicates
+                                                         the chosen aggregation operation op: AVERAGE,
+                                                         SUM or COUNT. Given Gc and the table values
+col0             col1           col2                    col3             col4                                       col5
+Home team                                                                                                           Crowd
+                 Home team score Away team              Away team score Venue
+
+geelong          18.17 (125)    hawthorn                6.7 (43)         corio oval                                 9,000
+footscray        8.18 (66)      south melbourne         11.18 (84)       western oval                               12,500
+fitzroy          11.5 (71)      richmond                8.12 (60)        brunswick street oval                      14,000
+north melbourne  6.12 (48)      essendon                14.11 (95)       arden street oval                          8,000
+st kilda         14.7 (91)      collingwood             17.13 (115)      junction oval                              16,000
+melbourne        12.11 (83)     carlton                 11.11 (77)       mcg                                        31,481
+
+        Question        What was the away team's score when the crowd at Arden Street Oval was larger than 31,481?
+        SQL Query       SELECT col3 AS result FROM table 2 10767641 15
+                        WHERE col5 > 31481.0 AND col4 = "arden street oval"
+        WIKISQL answer  ["14.11 (95)"]
+        Our answer      []
+
+        Question        What was the sum of the crowds at Western Oval?
+        SQL Query       SELECT SUM(col5) AS result FROM table 2 10767641 15
+                        WHERE col4 = "western oval"
+        WIKISQL answer  [12.0]
+        Our answer      [12500.0]
+
+Table 8: Table "2-10767641-15" from WIKISQL. "col6" was removed. The "Crowd" column is of type "REAL"
+but the cell values are actually stored as "TEXT". Below we have two questions from the training set with the
+answer that is produced by the WIKISQL evaluation script and the answer we derive.
+
+T we can define a random subset S  T where              Bernoulli variables) in the special case where one
+
+pc = P (c  S) for each cell c  T .                      of the probabilities is 1.
+   The expected value of COUNT(S) = c Gc can
+                                                        By using the Jensen inequality we get a lower
+be computed as c pc and SUM(S) = c GcTc as
+   c pcTc as described in Table 1. For the average      bound on Qc  as     1   =   1+   1    pj  .  Note              that     if  in-
+                                                                         E[Xc]
+however, this is not straight-forward. We will see in                                    j=c
+
+what follows that the quotient of the expected sum      stead we used    1     then  we recover the                 weighted
+                                                                         j pj
+and the count, which equals the weighed average
+                                                        average, which is strictly bigger than the lower
+of T by pc in general is not the true expected value,
+which can be written as:                                bound and in general not an upper or lower bound.
+
+                                                        We can get better approximations by computing
+
+                                                        the Taylor expansion using the moments6 of Xc of
+
+                                                        order k:
+
+              E         GcTc                                         1            1     +  var [Xc]                 +  ·  ·  ·  +
+                                                        Qc = E Xc                 [Xc]     E [Xc]3
+                        Gc                                                     E
+
+This quantity differs from the weighted average,                                      E    (Xc - E [Xc])k
+                                                                               (-1)k         E [Xc]k+1
+a key difference being that the weighted average
+
+is not sensitive to constants scaling all the output
+
+probabilities, which could in theory find optima           where var [Xc] = j=c pj(1 - pj).
+where all the pc are below 0.5 for example. By the         The full form for the zero and second order Tay-
+linearity of the expectation we can write:
+                                                        lor approximations are:
+
+   TcE  Gc       = TcpcE 1 +                  1         AVERAGE0(T, p) =                 Tc 1 +      pc
+        j Gj                                  j=c Gj                                                  j=c pj
+c                      c                                                             c
+
+So it comes down to computing that quantity             AVERAGE2(T, p) =                 Tc    pc(1  + c)
+                                                                                              1+     j=c pj
+Qc = E   1  =E          1       . The key obser-                                     c
+        Xc       1+     j=c Gj
+                                                                                       j=c pj(1 - pj)
+vation is that this is the expectation of a reciprocal                 with     c=   (1 + j=c pj )2
+
+of a Poisson Binomial Distribution 5 (a sum of
+
+5wikipedia.org/Poisson binomial distribution            6wikipedia.org/Taylor expansions for the moments
+   The approximations are then easy to write in any
+tensor computation language and will be differen-
+tiable. In this work we experimented with the zero
+and second order approximations and found small
+improvements over the weighted average baseline.
+It's worth noting that in the dataset the proportion
+of average examples is very low. We expect this
+method to be more relevant in the more general
+setting.
+

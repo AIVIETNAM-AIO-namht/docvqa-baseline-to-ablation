@@ -1,0 +1,250 @@
+===== PAGE 6 =====
+Table 1: Prompt templates used for instruction-tuning (spatial tokens not included).
+Task
+Template type
+Prompt template
+Expected response
+VQA
+Extraction
+"{document} {question}"
+answer annotation
+NLI
+MCQ
+"{document} \"{statement}\", Yes or No?"
+answer annotation
+KIE
+Extraction
+"{document} What is the value for the \"{key}\"?"
+Associated value annotation
+MCQ
+"{document} What is \"{value}\" in the document? Possible choices: {choices}."
+(where choices is a subset of all the keys in the dataset in random order)
+Associated key annotation
+Internal classification
+"{document} What is \"{value}\" in the document?"
+Associated key annotation
+CLS
+MCQ
+"{document} What type of document is this? Possible choices: {choices}."
+(where choices is a subset of all the classes in the dataset in random order)
+class annotation
+Internal classification
+"{document} What type of document is this?"
+class annotation
+z = {zm}M
+m=1 be M ≪K different text blocks randomly sampled from c, where each block zm = (zm,1, ..., zm,Nm)
+contains a consecutive series of tokens. Further, let ˜x be a corrupted version of x where the contiguous tokens
+corresponding to a sampled text block are replaced with a special mask token [M]. To facilitate the identification of
+the block to be filled during text generation, each input block is augmented with a special start token [S] while the
+output block includes an end token [E]. For instance, a block with tokens (x4, x5) becomes [M] in ˜x, ([S], x4, x5)
+when conditioned upon, and is expected to generate (x4, x5, [E]) as output autoregressively (see Figure 2 for a detailed
+illustration of these configurations). The following cross-entropy loss is then minimized for the infilling objective.
+LIF(θ) = −
+M
+X
+m=1
+Nm
+X
+j=1
+log pθ(zm,j|˜x, z<m, zm,<j)
+(6)
+3.4
+Instruction Tuning
+Following recent work in the field of VRDU [12, 31, 32] and prior work in NLP [40, 41], we instruction-tune DocLLM on
+a variety of instructions derived from DocAI datasets using various templates. Due to the high cost and time intensity of
+manual data collection, we leave the construction of a VRDU instruction-tuning dataset with crowdsourced instructions
+and preferences to future work. We employ a total of 16 datasets with their corresponding OCRs, spanning four DocAI
+tasks: visual question answering (VQA), natural language inference (NLI), key information extraction (KIE), and
+document classification (CLS).
+The diversity of supervised fine tuning (SFT) instructions is critical in helping zero-shot generalization [40, 41, 42].
+Thus, we diversify templates per task when possible, with each template asking a different question, and in some cases,
+expecting different types of answers. We re-use the templates introduced in [31, 32] when applicable, and consider a
+broader selection of datasets in our instruction-tuning data mix.
+We create the templates following what we believe end users would generally ask about documents (Table 1). For KIE
+and CLS, we hypothesize that (1) the extraction instructions can teach DocLLM to correlate names of keys in the prompts
+with document fields so as to retrieve values, (2) the internal classification instructions can help the model understand
+what intrinsically characterizes each key or document type, and (3) the multiple choice question (MCQ) instructions
+can teach the model to leverage its comprehension of key names included as choices in the prompt (resp. document
+type names) to classify extracted values (resp. entire documents). We introduce the templates in detail as follows.
+Visual Question Answering. We collect DocVQA [43], WikiTableQuestions (WTQ) [44], VisualMRC [45], DUDE
+[46], and BizDocs2, to compose the VQA instruction-tuning data mix. We use one instruction template to build our
+SFT inputs for VQA, as shown in table 1. An example prompt derived from DocVQA would read: "{document} What
+is the deadline for scientific abstract submission for ACOG - 51st annual clinical meeting?"
+Natural Language Inference. We only include TabFact [47] in our instruction-tuning data mix for NLI task, due to
+lack of additional DocAI NLI datasets available. The instruction template is shown in table 1. An example prompt
+derived from TabFact would read: "{document} \"The UN commission on Korea include 2 Australians.\", Yes or No?"
+Key Information Extraction. We gather Kleister Charity (KLC) [48], CORD [49], FUNSD [50], DeepForm [51], PWC
+[52], SROIE [53], VRDU ad-buy [54] (with random train-test splitting), and BizDocs to build the KIE instruction-tuning
+data, where we leverage three instruction templates: extraction, internal classification, and MCQ, as shown in 1. For the
+2BizDocs is a collection of business entity filings that is due to be released publicly.
+6
+===== PAGE 9 =====
+Table 5: Performance comparison in the SDDS setting against other multimodal and non-multimodal LLMs;
+non-multimodal LLMs are Zero-Shot (ZS) prompted while multimodal LLMs are instruction-tuned on the train split of
+the datasets considered. ‘-’ marks not available.
+Dataset
+GPT-4+OCR
+Llama2+OCR
+mPLUG-DocOwl
+UReader
+DocLLM-1B
+DocLLM-7B
+∼1T (T)
+7B (T)
+∼7B (T+V)
+∼7B (T+V)
+1B (T+L)
+7B (T+L)
+ZS
+ZS
+SDDS
+SDDS
+SDDS
+SDDS
+VQA
+DocVQA
+82.8
+47.4
+62.2
+65.4
+61.4
+69.5
+WTQ (Accuracy)
+65.4
+25.0
+26.9
+29.4
+21.9
+27.1
+VisualMRC (CIDEr)
+255.1
+115.5
+188.8
+221.7
+245.0
+264.1
+DUDE
+54.6
+38.1
+-
+-
+42.6
+47.2
+BizDocs
+76.4
+48.8
+-
+-
+84.5
+86.7
+NLI
+TabFact
+77.1
+48.2
+60.2
+67.6
+58.0
+66.4
+KIE
+KLC
+45.9
+27.8
+30.3
+32.8
+58.9
+60.3
+CORD
+58.3
+13.8
+-
+-
+66.9
+67.4
+FUNSD
+37.0
+17.8
+-
+-
+48.2
+51.8
+DeepForm
+42.1
+20.5
+42.6
+49.5
+71.3
+75.7
+PWC
+18.3
+6.8
+-
+-
+25.7
+29.06
+SROIE
+90.6
+56.4
+-
+-
+91.0
+91.9
+VRDU a.-b.
+43.7
+18.7
+-
+-
+87.6
+88.8
+BizDocs
+66.1
+10.8
+-
+-
+95.4
+95.9
+CLS
+RVL-CDIP
+68.2
+32.8
+-
+-
+90.9
+91.8
+BizDocs
+84.9
+40.9
+-
+-
+98.3
+99.4
+As motivated in section 2, we do not consider DocAI models that require task-specific fine-tuning [33, 59, 34] and/or
+dataset specific prompts [12], and instead focus on LLMs with out-of-the-box instruction following capability.
+Metrics. Following previous work [62, 34, 32, 31], we evaluate all VQA datasets using Average Normalized Levenshtein
+Similarity (ANLS) [63], with the exception of VisualMRC, for which we use CIDEr [64] and WTQ, for which we use
+accuracy5. Performance on all CLS and NLI datasets is measured using accuracy. We evaluate all KIE datasets with the
+F1 score.
+Results. In the SDDS setting, as shown in the Table 5, we observe that DocLLM-7B excels in 12 out of 16 datasets,
+inclusively compared to ZS results of GPT4 and Llama2, and SDDS results of mPLUG-DocOwl and UReader. Among
+equivalent models (excluding GPT4), our model outperforms in 14 out of 16 datasets. Specifically, DocLLM demonstrates
+superior performance in layout-intensive tasks such as KIE and CLS. In VQA and NLI, its performance surpasses that
+of most multimodal language models, although it underperforms compared to GPT-4. GPT-4 outperforms DocLLM in
+VQA, possibly due to the higher complexity of reasoning and abstraction involved in VQA datasets compared to tasks
+like KIE or CLS. DocLLM-1B demonstrates performance close to that of our larger model, suggesting that the smaller
+model can derive significant benefits from the architecture of DocLLM.
+In the STDD setting, our model demonstrates superior performance compared to Llama2 across four out of five datasets,
+and achieves the best score overall for two of them (KIE task again). DocLLM also outperforms mPLUG-DocOwl
+on DocVQA and both mPLUG-DocOwl and UReader on KLC, despite both baselines having been instruction-tuned
+on these datasets. However, it is important to note that classification accuracy is notably lower in our model. This
+discrepancy may stem from the fact that our model has been trained using only one classification dataset, limiting its
+ability to generalize effectively to new datasets.
+5
+Ablation Studies
+We conduct ablation studies to validate the three contributions of DocLLM: (1) disentangled spatial features, (2) the
+block infilling pre-training objective, and (3) the masking strategy used for decoding.
+For all ablations, we use Next Token Prediction (NTP) out-of-sample accuracy to compare configurations at the
+pre-training stage. Due to resource restrictions, each experiment uses a subset of our pre-training corpus: we randomly
+sample 100,000 chunks and predict on 1,000 unseen documents. A chunk is a pack of documents concatenated one by
+one with the total length less than maximum input length. The hyperparameters are set consistently following Table 4
+across all ablation experiments.
+5This is done to remain consistent with the results reported by other SotA models.
+9
