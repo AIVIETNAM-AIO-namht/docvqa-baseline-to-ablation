@@ -19,12 +19,99 @@ thay vì bằng phỏng đoán.
 
 - Subtopic được giao: **Hỏi đáp trên ảnh tài liệu** (`Slot 1/Working Files/reference/hoi_dap_tren_anh_tai_lieu.md`)
 - Hướng dẫn thực hiện Topic Team: `Slot 1/Working Files/reference/guide_extract.txt`
-- Đề bài và quy chế vòng thi: `Slot 1/Working Files/reference/exam_question_docvqa.md`
+- Đề bài vòng thi **OLP AI PTIT 2026 — Vòng loại**: `Slot 1/Working Files/reference/exam_question_docvqa.md`
 - Baseline tham chiếu của mentor: `Slot 1/Working Files/reference/mentor_solution_extract.txt`
+- Outline đề xuất đề tài đã nộp TA (mục IV = bảng ablation): `Slot 1/Outline Project - Hỏi đáp trên ảnh tài liệu (Document VQA).docx`
 
 Phần **được giao** là subtopic và baseline. Phần **tự làm** là hệ luật Cấu hình B, harness
 đo trần, giao thức chống overfit, và hai kết luận âm của C và D — toàn bộ nằm trong
 `Slot 1/Working Files/code/`.
+
+---
+
+## Vì sao có bốn cấu hình A/B/C/D
+
+Bốn cấu hình không phải bốn thử nghiệm rời rạc. Chúng là **một thang leo có chủ đích**,
+mỗi bậc trả lời đúng một câu hỏi, và bậc sau chỉ được dựng nếu bậc trước đã chứng minh
+nó đáng dựng. Dưới đây là đường đi của suy luận đó.
+
+### 1. Điểm xuất phát — không phải "làm sao cho điểm cao hơn", mà là "điểm mất ở đâu"
+
+Baseline của mentor đạt **95,45**. Câu hỏi tự nhiên là *cải thiện chỗ nào* — nhưng đó là
+câu hỏi sai, vì nó dẫn tới việc thử mọi thứ. Câu hỏi đúng là **điểm đang mất nằm ở đâu**.
+
+Hai nguồn trả lời được câu đó:
+
+- **TA Minh** chỉ ra hai bài toán con của Document VQA: **tái dựng hàng logic** (gom các ô
+  OCR rời rạc thành đúng hàng của bảng) và **căn chỉnh giá trị theo hàng**.
+- **File chẩn đoán của baseline** (`argextreme_*.csv`, 3.772 câu `argmax`/`argmin`) cho thấy
+  **93,1% lỗi của baseline tập trung đúng ở khâu chọn hàng logic** (Argmax 44,9% + Argmin 48,2%).
+
+⇒ Kết luận: **điểm mất không rải đều, nó dồn vào một chỗ.** Vậy cả dự án chỉ nên xoay quanh
+chỗ đó, và mọi thứ khác bị loại khỏi phạm vi ngay từ đầu.
+
+### 2. Nguyên tắc thiết kế thang — từ nhẹ đến nặng
+
+Từ chỗ đó, thang được dựng theo một nguyên tắc duy nhất:
+
+> **Không model → Model nông → VLM.** Mỗi bậc thêm đúng một loại năng lực, và phải tự
+> chứng minh năng lực đó là cần thiết trước khi bậc sau được phép tồn tại.
+
+Lý do chọn nguyên tắc này: mỗi bậc đắt hơn bậc trước rất nhiều (0 GPU → vài ngày GPU →
+nhiều ngày GPU), nên nếu bậc nhẹ đã chạm trần thì bậc nặng là tiền và thời gian đổ đi.
+Thang leo biến câu hỏi *"có nên dùng model không"* thành câu hỏi **đo được**: *trần của
+bậc nhẹ là bao nhiêu, và bậc nặng vượt được bao nhiêu.*
+
+### 3. Đọc 10 paper — ba nhận xét định hình thang
+
+Đọc 10 paper SOTA (DocVQA, TAPAS, LayoutLMv3, DocLLM, LMDX, Qwen2-VL, Qwen2.5-VL,
+BoundingDocs, DocExplainerV0, LiGT) cho ba nhận xét quyết định:
+
+1. **Không paper nào giải đúng bài toán đang mắc.** Cả 10 paper đều giả định bảng **đã có
+   cấu trúc** (HTML / markdown / văn bản tuyến tính hoá). Không paper nào làm việc *chọn
+   hàng logic trên một lưới OCR phẳng* — đúng chỗ 93,1% lỗi đang nằm. ⇒ **Đây là khoảng
+   trống, không phải bài toán đã có lời giải.** Vì vậy không thể chỉ đi copy một kiến trúc.
+2. **TAPAS cho ý tưởng tách đôi.** Nó tách *chọn ô* khỏi *thực thi phép toán* — tức là
+   tách **định vị** khỏi **tính toán**. Nhận xét này thành kiến trúc của cả hệ: một
+   **Router** phân loại câu hỏi, rồi một **Solver** thực thi theo từng dạng.
+3. **LayoutLMv3 và Qwen2.5-VL không phải hai lựa chọn thay thế nhau, mà là hai mức của
+   cùng một thang.** LayoutLMv3 là *model nông*: hiểu bố cục, **không sinh được văn bản**.
+   Qwen2.5-VL là *VLM*: vừa hiểu bố cục vừa **sinh và so sánh được ngữ nghĩa**. Đây chính
+   là lý do C và D là **hai ablation riêng biệt** chứ không gộp thành một — chúng kiểm hai
+   năng lực khác nhau, ở hai mức chi phí khác nhau.
+
+### 4. Mỗi cấu hình trả lời đúng một câu hỏi
+
+| | Câu hỏi mà cấu hình này trả lời | Vì sao cần hỏi câu đó |
+|---|---|---|
+| **A** | Baseline của mentor đang ở đâu? | Mốc đối chứng. Không có A thì mọi con số sau không có nghĩa. |
+| **B** | Chỉ dùng luật hình học 2D thuần Python — **không model** — thì chạm trần ở đâu? | Nếu B đã chạm trần, mọi bậc sau là thừa. Đây là bậc **rẻ nhất**, phải hỏi trước tiên. |
+| **C** | Thêm **model nông có tham số không gian** (LayoutLMv3) có vượt được B không? | Đo xem tín hiệu không gian — thứ LayoutLMv3 khai thác — có **tồn tại** trong dữ liệu này không. |
+| **D** | Thêm **VLM lớn** (Qwen2.5-VL) có vượt được B không? | Đo xem năng lực *đọc ảnh trực tiếp* có vượt được trần của **một phép đo thủ công** không. |
+
+Điểm mấu chốt về phương pháp: **C và D đều được đo trần trước khi dựng**, và cả hai đều
+có **luật quyết định ghi sẵn trong script trước khi chạy** (ví dụ nhánh D:
+`D − B ≥ +0,03` → mới dựng model + QLoRA; `≤ 0` → dừng). Nghĩa là kết quả âm không phải
+chuyện xảy ra rồi mới biện luận, mà là **điều kiện dừng được đặt trước**.
+
+### 5. Vì sao C và D kết thúc bằng kết luận âm — và vì sao đó vẫn là kết quả
+
+- **C**: trần của nhánh này đo được **99,14% (dev)** — nghe rất hấp dẫn, nhưng con số đó
+  chỉ đạt được **khi biết trước hàng vàng**, tức nó không phải một lời giải. Kiểm bằng 4 họ
+  luật không-cần-nhãn: **0 họ chạm trần**. Và hình học hàng trong dữ liệu **đồng nhất tuyệt
+  đối** (cao độ 0,02121 ở mọi hàng, khe hở 0,00000) — tức **loại tín hiệu mà LayoutLMv3
+  sinh ra để khai thác không tồn tại**. Dựng model là chắc chắn âm.
+- **D**: `visual_bold_lookup` là dạng duy nhất có trần dưới 100% (82,99%) vì phụ thuộc
+  `is_bold` — trường duy nhất không có trong OCR. Câu hỏi mở là: 82,99% là trần của **tín
+  hiệu ảnh**, hay chỉ là trần của **một phép đo độ dày nét**? VLM đọc ảnh trực tiếp là phép
+  thử duy nhất còn lại. Chạy zero-shot: **0,578** so với B **0,818** (chênh −0,241), chọn
+  đúng hàng 60/120 = **đúng mức đoán bừa**. ⇒ 82,99% là trần của **tín hiệu**, không phải
+  của phép đo.
+
+Nói cách khác: **giá trị của dự án không nằm ở việc dựng được model, mà ở việc chứng minh
+bằng số đo rằng hai tầng model đó không đáng dựng trên bộ dữ liệu này** — và chỉ ra chính
+xác loại lỗi nào thì model học sâu mới thực sự cần thiết (câu trả lời: ở `argmax`/`argmin`
+của bộ dữ liệu này, **không loại nào**).
 
 ---
 
@@ -224,6 +311,7 @@ Solver Cấu hình B **không cần GPU và không cần PyTorch**.
 
 ## Tác giả
 
-**Huỳnh Thuyên Nam** — OLP AI PTIT 2026, Vòng loại, chủ đề Document VQA.
+**Huỳnh Thuyên Nam** — Module 4 (Document VQA) khóa AIO2026, AI VIET NAM.
+Đề bài vòng loại: OLP AI PTIT 2026 — Vòng loại, chủ đề Document VQA.
 
 Nhật ký công việc đầy đủ theo tuần: [`PROGRESS_LOG.md`](Slot%201/Working%20Files/PROGRESS_LOG.md)
