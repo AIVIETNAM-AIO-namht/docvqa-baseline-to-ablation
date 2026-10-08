@@ -1,6 +1,7 @@
 # docvqa-baseline-to-ablation
 
-Hỏi đáp trên ảnh tài liệu (**Document VQA**) — lời giải cho vòng loại *OLP AI PTIT 2026*.
+Hỏi đáp trên ảnh tài liệu (**Document VQA**) — **Module 4** của khóa **AIO2026 (AI VIET NAM)**,
+subtopic *Hỏi đáp trên ảnh tài liệu*.
 
 Bắt đầu từ baseline của mentor (**0,9545**), dựng một hệ luật thuần Python đạt **0,968**,
 rồi đo trần của từng tầng mô hình học sâu trước khi quyết định có dựng hay không.
@@ -8,6 +9,22 @@ rồi đo trần của từng tầng mô hình học sâu trước khi quyết �
 Điểm đáng chú ý không nằm ở con số cuối, mà ở chỗ **hai tầng mô hình đều cho kết luận âm
 có bằng chứng đo được** — và phần lớn công sức của dự án là chứng minh điều đó bằng số liệu
 thay vì bằng phỏng đoán.
+
+---
+
+## Bối cảnh
+
+Đây là sản phẩm **Module 4** của khóa **AIO2026 — AI VIET NAM**, làm theo hình thức
+**Topic Team**: nhận một subtopic có sẵn, tự đọc paper, tự triển khai và tự đánh giá.
+
+- Subtopic được giao: **Hỏi đáp trên ảnh tài liệu** (`Slot 1/Working Files/reference/hoi_dap_tren_anh_tai_lieu.md`)
+- Hướng dẫn thực hiện Topic Team: `Slot 1/Working Files/reference/guide_extract.txt`
+- Đề bài và quy chế vòng thi: `Slot 1/Working Files/reference/exam_question_docvqa.md`
+- Baseline tham chiếu của mentor: `Slot 1/Working Files/reference/mentor_solution_extract.txt`
+
+Phần **được giao** là subtopic và baseline. Phần **tự làm** là hệ luật Cấu hình B, harness
+đo trần, giao thức chống overfit, và hai kết luận âm của C và D — toàn bộ nằm trong
+`Slot 1/Working Files/code/`.
 
 ---
 
